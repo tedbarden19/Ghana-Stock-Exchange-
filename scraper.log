@@ -175,3 +175,17 @@
 2026-07-13 22:48:34,574 - INFO - ── APPEND: Appending to main dataset...
 2026-07-13 22:48:34,576 - INFO - ── APPEND: 41 new rows added to C:\Users\Tom\Desktop\Re\Data.csv
 2026-07-13 22:48:34,576 - INFO - ✓ All steps completed successfully
+2026-07-14 22:50:17,639 - INFO - ══════════════════════════════════════
+2026-07-14 22:50:17,639 - INFO -   GSE Scraper started at 2026-07-14 22:50:17.639657
+2026-07-14 22:50:17,639 - INFO - ══════════════════════════════════════
+2026-07-14 22:50:17,639 - INFO - ── SCRAPE: Starting browser...
+2026-07-14 22:50:26,334 - INFO - ── SCRAPE: Fetching data for 14/07/2026
+2026-07-14 22:50:51,246 - INFO - ── SCRAPE: Selected 'All' entries
+2026-07-14 22:50:51,357 - INFO - ── SCRAPE: Download initiated, waiting for file...
+2026-07-14 22:51:01,431 - INFO - ── SCRAPE: Browser closed
+2026-07-14 22:51:01,431 - INFO - ── CLEAN: Found downloaded file: /home/runner/work/Ghana-Stock-Exchange-/Ghana-Stock-Exchange-/downloads/Daily Shares  ETFs 2023 (1).csv
+2026-07-14 22:51:01,431 - INFO - ── CLEAN: Cleaning data...
+2026-07-14 22:51:01,437 - INFO - ── CLEAN: 41 rows cleaned
+2026-07-14 22:51:01,437 - INFO - ── APPEND: Appending to main dataset...
+2026-07-14 22:51:01,438 - INFO - ── APPEND: 41 new rows added to C:\Users\Tom\Desktop\Re\Data.csv
+2026-07-14 22:51:01,438 - INFO - ✓ All steps completed successfully
