@@ -38,7 +38,7 @@ jobs:
       - name: Run scraper
         run: |
           cd "$SCRIPT_DIR"
-          python scraper.py
+          python main.py
 
       - name: Upload debug artifacts on failure
         if: failure()
