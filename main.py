@@ -13,7 +13,7 @@ from selenium.webdriver.common.keys import Keys
 
 BASE_DIR       = os.path.dirname(os.path.abspath(__file__))
 DOWNLOAD_DIR   = os.path.join(BASE_DIR, "downloads")
-MAIN_DATA_FILE = r"C:\Users\Tom\Desktop\Re\Data.csv"
+MAIN_DATA_FILE = os.path.join(BASE_DIR, "Data.csv")
 LOG_FILE       = os.path.join(BASE_DIR, "scraper.log")
 
 
@@ -27,18 +27,17 @@ def log(msg, level="info"):
     print(msg)
     getattr(logging, level)(msg)
 
-
-# ─────────────────────────────────────────────
-# STEP 1: SCRAPE — download today's CSV
-# ─────────────────────────────────────────────
+#Web Scraping
 def scrape():
     log("── SCRAPE: Starting browser...")
     os.makedirs(DOWNLOAD_DIR, exist_ok=True)
 
     chrome_options = Options()
-    chrome_options.add_argument("--headless")
+    chrome_options.add_argument("--headless=new")
     chrome_options.add_argument("--no-sandbox")
     chrome_options.add_argument("--disable-dev-shm-usage")
+    chrome_options.add_argument("--disable-gpu")
+    chrome_options.add_argument("--window-size=1920,1080")
 
     prefs = {
         "download.default_directory": DOWNLOAD_DIR,
@@ -49,6 +48,11 @@ def scrape():
     chrome_options.add_experimental_option("prefs", prefs)
 
     driver = webdriver.Chrome(options=chrome_options)
+
+    driver.execute_cdp_cmd("Page.setDownloadBehavior", {
+        "behavior": "allow",
+        "downloadPath": DOWNLOAD_DIR
+    })
 
     try:
         current_date = datetime.date.today().strftime("%d/%m/%Y")
@@ -87,20 +91,43 @@ def scrape():
             "/html/body/div[1]/div/div[3]/div[1]/div/div/div/div[4]/div[2]/div/div/div/div[2]/div[2]/div[1]/button[3]")))
         csv_button.click()
         log("── SCRAPE: Download initiated, waiting for file...")
-        time.sleep(10)
+
+      
+        _wait_for_download(timeout=30)
 
     except Exception as e:
         log(f"── SCRAPE ERROR: {e}", "error")
-        driver.save_screenshot(os.path.join(BASE_DIR, "error_screenshot.png"))
+        try:
+            driver.save_screenshot(os.path.join(BASE_DIR, "error_screenshot.png"))
+        except Exception:
+            pass
         raise
     finally:
         driver.quit()
         log("── SCRAPE: Browser closed")
 
 
-# ─────────────────────────────────────────────
-# STEP 2: FIND the most recently downloaded CSV
-# ─────────────────────────────────────────────
+def _wait_for_download(timeout=30, poll=1):
+    """Wait until a .csv file appears in DOWNLOAD_DIR and is fully written
+    (no lingering .crdownload part-file)."""
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        files = os.listdir(DOWNLOAD_DIR)
+        has_partial = any(f.endswith(".crdownload") for f in files)
+        csvs = [f for f in files if f.endswith(".csv")]
+        if csvs and not has_partial:
+            log(f"── SCRAPE: Download confirmed: {csvs[-1]}")
+            return
+        time.sleep(poll)
+    raise TimeoutError(
+        f"No completed CSV download detected in {DOWNLOAD_DIR} after {timeout}s. "
+        "Check error_screenshot.png / scraper.log — the page likely didn't load "
+        "as expected (selectors may have changed, or download was blocked)."
+    )
+
+
+#  FIND the most recently downloaded CSV
+
 def get_latest_download():
     csv_files = [
         os.path.join(DOWNLOAD_DIR, f)
@@ -114,9 +141,19 @@ def get_latest_download():
     return latest
 
 
-# ─────────────────────────────────────────────
-# STEP 3: CLEAN the downloaded data
-# ─────────────────────────────────────────────
+
+#  CLEAN the downloaded data
+
+
+
+NUMERIC_COLS = [
+    'Year High (GH¢)', 'Year Low (GH¢)', 'Previous Closing Price - VWAP (GH¢)',
+    'Opening Price (GH¢)', 'Last Transaction Price (GH¢)', 'Closing Price - VWAP (GH¢)',
+    'Price Change (GH¢)', 'Closing Bid Price (GH¢)', 'Closing Offer Price (GH¢)',
+    'Total Shares Traded', 'Total Value Traded (GH¢)'
+]
+
+
 def clean(filepath):
     log("── CLEAN: Cleaning data...")
     df = pd.read_csv(filepath)
@@ -127,8 +164,17 @@ def clean(filepath):
         return None
 
     df = df.loc[:, ~df.columns.str.match(r"^Unnamed")]
+    df.columns = df.columns.str.strip()
 
-    df['Daily Date'] = pd.to_datetime(df['Daily Date'], dayfirst=True)
+   
+    df['Daily Date'] = pd.to_datetime(df['Daily Date'], format="%d/%m/%Y")
+
+    df['Share Code'] = df['Share Code'].astype(str).str.replace('*', '', regex=False).str.strip()
+
+    for col in NUMERIC_COLS:
+        if df[col].dtype == object:
+            df[col] = df[col].astype(str).str.replace(',', '', regex=False)
+        df[col] = pd.to_numeric(df[col], errors='coerce')
 
     cols = ['Closing Bid Price (GH¢)', 'Closing Offer Price (GH¢)']
     df[cols] = df[cols].fillna(0)
@@ -137,22 +183,40 @@ def clean(filepath):
     return df
 
 
-# ─────────────────────────────────────────────
-# STEP 4: APPEND new rows to main data file
-# ─────────────────────────────────────────────
+# APPEND new rows to main data file
+
 def append_to_main(df):
     log("── APPEND: Appending to main dataset...")
 
     # Write header only if Data.csv doesn't exist yet (first ever run)
     write_header = not os.path.exists(MAIN_DATA_FILE)
-    df.to_csv(MAIN_DATA_FILE, mode='a', header=write_header, index=False)
 
+    # Avoid duplicate rows if the workflow runs more than once for the same day
+    if not write_header:
+        try:
+            existing = pd.read_csv(MAIN_DATA_FILE)
+            # Data.csv is always written in ISO format (see append below),
+            # so pin the format here too instead of letting pandas guess.
+            existing['Daily Date'] = pd.to_datetime(existing['Daily Date'], format="%Y-%m-%d", errors='coerce')
+            before = len(df)
+            df = df[~df['Daily Date'].isin(existing['Daily Date'])]
+            skipped = before - len(df)
+            if skipped:
+                log(f"── APPEND: Skipped {skipped} row(s) already present for today's date")
+        except Exception as e:
+            log(f"── APPEND: Could not check for duplicates ({e}), appending as-is", "warning")
+
+    if df.empty:
+        log("── APPEND: Nothing new to append")
+        return
+
+    df.to_csv(MAIN_DATA_FILE, mode='a', header=write_header, index=False)
     log(f"── APPEND: {len(df)} new rows added to {MAIN_DATA_FILE}")
 
 
-# ─────────────────────────────────────────────
+
 # MAIN RUNNER
-# ─────────────────────────────────────────────
+
 if __name__ == "__main__":
     log("══════════════════════════════════════")
     log(f"  GSE Scraper started at {datetime.datetime.now()}")
@@ -171,3 +235,4 @@ if __name__ == "__main__":
 
     except Exception as e:
         log(f"✗ Fatal error: {e}", "error")
+        raise

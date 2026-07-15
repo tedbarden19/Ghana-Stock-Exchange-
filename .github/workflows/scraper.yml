@@ -1,42 +1,59 @@
-name: GSE Daily Scraper
+name: GSE Daily Scrape
 
 on:
   schedule:
-    - cron: '0 22 * * 1-5'   # Runs at 10:00 PM UTC, Monday to Friday
-  workflow_dispatch:           # Allows you to run it manually from GitHub anytime
+    - cron: "0 8 * * *"   # adjust to your desired UTC time
+  workflow_dispatch:        # lets you trigger it manually to test
+
+permissions:
+  contents: write   # needed so the workflow can commit Data.csv back
+
+env:
+  # If scraper.py lives in a subfolder of the repo, set it here, e.g. "scripts"
+  # Leave as "." if scraper.py sits in the repo root.
+  SCRIPT_DIR: "."
 
 jobs:
   scrape:
     runs-on: ubuntu-latest
-
     steps:
-      # 1. Check out your repository (downloads all your files onto the server)
-      - name: Checkout repository
+      - name: Checkout repo
         uses: actions/checkout@v4
 
-      # 2. Set up Python
+      - name: Debug - list repo contents
+        run: ls -R
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: "3.11"
 
-      # 3. Install Chrome and ChromeDriver (needed for Selenium)
       - name: Install Chrome
         uses: browser-actions/setup-chrome@v1
 
-      # 4. Install Python dependencies
-      - name: Install dependencies
-        run: pip install selenium pandas
+      - name: Install Python dependencies
+        run: |
+          pip install selenium pandas
 
-      # 5. Run the scraper
       - name: Run scraper
-        run: python main.py
+        run: |
+          cd "$SCRIPT_DIR"
+          python main.py
 
-      # 6. Save the updated Data.csv back to the repository
-      - name: Commit and push updated Data.csv
+      - name: Upload debug artifacts on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: debug-files
+          path: |
+            ${{ env.SCRIPT_DIR }}/error_screenshot.png
+            ${{ env.SCRIPT_DIR }}/scraper.log
+          if-no-files-found: ignore
+
+      - name: Commit updated data
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add Data.csv scraper.log
-          git diff --staged --quiet || git commit -m "Auto update: GSE data $(date +'%Y-%m-%d')"
+          git add "${SCRIPT_DIR}/Data.csv" "${SCRIPT_DIR}/scraper.log"
+          git diff --quiet --cached || git commit -m "Update GSE data $(date -u +'%Y-%m-%d')"
           git push
