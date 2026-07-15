@@ -8,12 +8,20 @@ on:
 permissions:
   contents: write   # needed so the workflow can commit Data.csv back
 
+env:
+  # If scraper.py lives in a subfolder of the repo, set it here, e.g. "scripts"
+  # Leave as "." if scraper.py sits in the repo root.
+  SCRIPT_DIR: "."
+
 jobs:
   scrape:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
+
+      - name: Debug - list repo contents
+        run: ls -R
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -28,12 +36,24 @@ jobs:
           pip install selenium pandas
 
       - name: Run scraper
-        run: python scraper.py
+        run: |
+          cd "$SCRIPT_DIR"
+          python scraper.py
+
+      - name: Upload debug artifacts on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: debug-files
+          path: |
+            ${{ env.SCRIPT_DIR }}/error_screenshot.png
+            ${{ env.SCRIPT_DIR }}/scraper.log
+          if-no-files-found: ignore
 
       - name: Commit updated data
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add Data.csv scraper.log
+          git add "${SCRIPT_DIR}/Data.csv" "${SCRIPT_DIR}/scraper.log"
           git diff --quiet --cached || git commit -m "Update GSE data $(date -u +'%Y-%m-%d')"
           git push
