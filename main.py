@@ -13,7 +13,11 @@ from selenium.webdriver.common.keys import Keys
 
 BASE_DIR       = os.path.dirname(os.path.abspath(__file__))
 DOWNLOAD_DIR   = os.path.join(BASE_DIR, "downloads")
-MAIN_DATA_FILE = r"C:\Users\Tom\Desktop\Re\Data.csv"
+
+# NOTE: this used to be a hardcoded Windows path (C:\Users\Tom\...), which does
+# not exist on a GitHub Actions runner. Now it lives inside the repo, next to
+# this script, so it can be committed back by the workflow after each run.
+MAIN_DATA_FILE = os.path.join(BASE_DIR, "Data.csv")
 LOG_FILE       = os.path.join(BASE_DIR, "scraper.log")
 
 
@@ -36,9 +40,13 @@ def scrape():
     os.makedirs(DOWNLOAD_DIR, exist_ok=True)
 
     chrome_options = Options()
-    chrome_options.add_argument("--headless")
+    chrome_options.add_argument("--headless=new")
     chrome_options.add_argument("--no-sandbox")
     chrome_options.add_argument("--disable-dev-shm-usage")
+    chrome_options.add_argument("--disable-gpu")
+    # Headless Chrome can render layouts differently at small/default sizes,
+    # which breaks the long absolute XPaths below. Force a real viewport size.
+    chrome_options.add_argument("--window-size=1920,1080")
 
     prefs = {
         "download.default_directory": DOWNLOAD_DIR,
@@ -49,6 +57,13 @@ def scrape():
     chrome_options.add_experimental_option("prefs", prefs)
 
     driver = webdriver.Chrome(options=chrome_options)
+
+    # Headless Chrome silently blocks downloads unless explicitly allowed via
+    # this CDP command. Without it, the click "succeeds" but no file appears.
+    driver.execute_cdp_cmd("Page.setDownloadBehavior", {
+        "behavior": "allow",
+        "downloadPath": DOWNLOAD_DIR
+    })
 
     try:
         current_date = datetime.date.today().strftime("%d/%m/%Y")
@@ -87,15 +102,41 @@ def scrape():
             "/html/body/div[1]/div/div[3]/div[1]/div/div/div/div[4]/div[2]/div/div/div/div[2]/div[2]/div[1]/button[3]")))
         csv_button.click()
         log("── SCRAPE: Download initiated, waiting for file...")
-        time.sleep(10)
+
+        # Actively wait for a .csv to land instead of a blind sleep — this makes
+        # failures ("nothing ever downloaded") visible instead of silently
+        # falling through to a stale/missing file.
+        _wait_for_download(timeout=30)
 
     except Exception as e:
         log(f"── SCRAPE ERROR: {e}", "error")
-        driver.save_screenshot(os.path.join(BASE_DIR, "error_screenshot.png"))
+        try:
+            driver.save_screenshot(os.path.join(BASE_DIR, "error_screenshot.png"))
+        except Exception:
+            pass
         raise
     finally:
         driver.quit()
         log("── SCRAPE: Browser closed")
+
+
+def _wait_for_download(timeout=30, poll=1):
+    """Wait until a .csv file appears in DOWNLOAD_DIR and is fully written
+    (no lingering .crdownload part-file)."""
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        files = os.listdir(DOWNLOAD_DIR)
+        has_partial = any(f.endswith(".crdownload") for f in files)
+        csvs = [f for f in files if f.endswith(".csv")]
+        if csvs and not has_partial:
+            log(f"── SCRAPE: Download confirmed: {csvs[-1]}")
+            return
+        time.sleep(poll)
+    raise TimeoutError(
+        f"No completed CSV download detected in {DOWNLOAD_DIR} after {timeout}s. "
+        "Check error_screenshot.png / scraper.log — the page likely didn't load "
+        "as expected (selectors may have changed, or download was blocked)."
+    )
 
 
 # ─────────────────────────────────────────────
@@ -145,8 +186,25 @@ def append_to_main(df):
 
     # Write header only if Data.csv doesn't exist yet (first ever run)
     write_header = not os.path.exists(MAIN_DATA_FILE)
-    df.to_csv(MAIN_DATA_FILE, mode='a', header=write_header, index=False)
 
+    # Avoid duplicate rows if the workflow runs more than once for the same day
+    if not write_header:
+        try:
+            existing = pd.read_csv(MAIN_DATA_FILE)
+            existing['Daily Date'] = pd.to_datetime(existing['Daily Date'], errors='coerce')
+            before = len(df)
+            df = df[~df['Daily Date'].isin(existing['Daily Date'])]
+            skipped = before - len(df)
+            if skipped:
+                log(f"── APPEND: Skipped {skipped} row(s) already present for today's date")
+        except Exception as e:
+            log(f"── APPEND: Could not check for duplicates ({e}), appending as-is", "warning")
+
+    if df.empty:
+        log("── APPEND: Nothing new to append")
+        return
+
+    df.to_csv(MAIN_DATA_FILE, mode='a', header=write_header, index=False)
     log(f"── APPEND: {len(df)} new rows added to {MAIN_DATA_FILE}")
 
 
@@ -171,3 +229,4 @@ if __name__ == "__main__":
 
     except Exception as e:
         log(f"✗ Fatal error: {e}", "error")
+        raise
