@@ -2,7 +2,7 @@ name: GSE Daily Scrape
 
 on:
   schedule:
-    - cron: "0 18 * * 1-5"   # Run ~18:00 UTC (after Ghana market close)
+    - cron: "0 18 * * 1-5"   # Run after Ghana market close (Mon-Fri)
   workflow_dispatch:
 
 permissions:
@@ -11,21 +11,49 @@ permissions:
 jobs:
   scrape:
     runs-on: ubuntu-latest
+    
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - name: Install Chrome & deps
+
+      - name: Install system dependencies + Chrome
         run: |
-          sudo apt-get update && sudo apt-get install -y chromium-chromedriver
+          sudo apt-get update
+          sudo apt-get install -y wget unzip xvfb
+          
+          # Install Google Chrome
+          wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | sudo apt-key add -
+          echo 'deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main' | sudo tee /etc/apt/sources.list.d/google-chrome.list
+          sudo apt-get update
+          sudo apt-get install -y google-chrome-stable
+
+      - name: Install Python dependencies
+        run: |
           pip install selenium pandas
-      - name: Run scraper
+
+      - name: Run GSE Scraper
         run: python main.py
-      - name: Commit & push
+
+      - name: Upload debug artifacts (on failure)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: debug-files
+          path: |
+            error_screenshot.png
+            scraper.log
+            downloads/
+          if-no-files-found: ignore
+
+      - name: Commit updated Data.csv
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add Data.csv scraper.log
-          git diff --quiet --cached || git commit -m "Update GSE data $(date -u +'%Y-%m-%d')"
+          git diff --quiet --cached || git commit -m "Update GSE data $(date -u +'%Y-%m-%d %H:%M UTC')"
           git push
