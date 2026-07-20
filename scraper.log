@@ -282,3 +282,17 @@
 2026-07-20 23:10:04,276 - INFO - ── CLEAN: Cleaning data...
 2026-07-20 23:10:04,278 - INFO - ── CLEAN: No data for today — the GSE has not published records yet. Stopping.
 2026-07-20 23:10:04,279 - INFO - ✗ Process stopped — no data available for today.
+2026-07-20 23:23:17,595 - INFO - ══════════════════════════════════════
+2026-07-20 23:23:17,595 - INFO - GSE Scraper started at 2026-07-20 23:23:17.595388
+2026-07-20 23:23:17,595 - INFO - ══════════════════════════════════════
+2026-07-20 23:23:17,595 - INFO - ── SCRAPE: Starting browser...
+2026-07-20 23:23:18,577 - INFO - ── SCRAPE: Fetching data for 20/07/2026
+2026-07-20 23:23:40,934 - INFO - ── SCRAPE: Selected 'All' entries
+2026-07-20 23:23:41,026 - INFO - ── SCRAPE: Download initiated...
+2026-07-20 23:23:43,027 - INFO - ── SCRAPE: Download confirmed: Daily Shares  ETFs 2023.csv
+2026-07-20 23:23:43,100 - INFO - ── SCRAPE: Browser closed
+2026-07-20 23:23:43,100 - INFO - ── CLEAN: Cleaning data...
+2026-07-20 23:23:43,118 - INFO - ── CLEAN: 41 rows cleaned successfully
+2026-07-20 23:23:43,118 - INFO - ── APPEND: Appending to main dataset...
+2026-07-20 23:23:43,184 - INFO - ── APPEND: 41 new rows added
+2026-07-20 23:23:43,185 - INFO - ✓ All steps completed successfully
