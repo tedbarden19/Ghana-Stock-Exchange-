@@ -1,0 +1,28 @@
+name: Fix Date Format (one-time)
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install pandas
+        run: pip install pandas
+      - name: Run date format fix
+        run: python fix_date_format.py
+      - name: Commit normalized Data.csv
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add Data.csv
+          git diff --quiet --cached || git commit -m "Normalize Daily Date format to M/D/YYYY"
+          git push
