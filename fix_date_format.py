@@ -11,7 +11,10 @@ DATA_FILE = "Data.csv"
 DATE_FORMAT = "%m/%d/%Y"
 
 df = pd.read_csv(DATA_FILE)
-df['Daily Date'] = pd.to_datetime(df['Daily Date'])
+# format='mixed' parses each row individually instead of locking the whole
+# column to one detected format — needed because the file currently has
+# both M/D/YYYY (old rows) and YYYY-MM-DD (newest rows) mixed together.
+df['Daily Date'] = pd.to_datetime(df['Daily Date'], format='mixed')
 df['Daily Date'] = df['Daily Date'].dt.strftime(DATE_FORMAT)
 df.to_csv(DATA_FILE, index=False)
 
