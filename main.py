@@ -16,6 +16,11 @@ DOWNLOAD_DIR = os.path.join(BASE_DIR, "downloads")
 MAIN_DATA_FILE = os.path.join(BASE_DIR, "Data.csv")
 LOG_FILE = os.path.join(BASE_DIR, "scraper.log")
 
+# Canonical date format used throughout Data.csv. Keeping this as a single
+# constant means every write path (first write, append) stays consistent,
+# which is what Power Query / Power BI needs to reliably type the column.
+DATE_FORMAT = "%m/%d/%Y"
+
 logging.basicConfig(
     filename=LOG_FILE,
     level=logging.INFO,
@@ -178,6 +183,17 @@ def append_to_main(df):
         existing = pd.read_csv(MAIN_DATA_FILE)
         existing['Daily Date'] = pd.to_datetime(existing['Daily Date'], errors='coerce')
         df = df[~df['Daily Date'].isin(existing['Daily Date'])]
+
+    if df.empty:
+        log("── APPEND: No new rows to add (all dates already present).")
+        return
+
+    # Lock the date column to a single consistent text format before writing.
+    # Without this, pandas writes datetime columns out as ISO (YYYY-MM-DD),
+    # which silently mismatches the M/D/YYYY format already in Data.csv and
+    # breaks Power Query's date type detection on the newest rows.
+    df = df.copy()
+    df['Daily Date'] = df['Daily Date'].dt.strftime(DATE_FORMAT)
 
     df.to_csv(MAIN_DATA_FILE, mode='a', header=write_header, index=False)
     log(f"── APPEND: {len(df)} new rows added")
