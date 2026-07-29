@@ -380,3 +380,17 @@
 2026-07-28 19:18:25,638 - INFO - ── APPEND: Appending to main dataset...
 2026-07-28 19:18:25,698 - INFO - ── APPEND: 41 new rows added
 2026-07-28 19:18:25,699 - INFO - ✓ All steps completed successfully
+2026-07-29 19:09:10,289 - INFO - ══════════════════════════════════════
+2026-07-29 19:09:10,289 - INFO - GSE Scraper started at 2026-07-29 19:09:10.289402
+2026-07-29 19:09:10,289 - INFO - ══════════════════════════════════════
+2026-07-29 19:09:10,289 - INFO - ── SCRAPE: Starting browser...
+2026-07-29 19:09:19,055 - INFO - ── SCRAPE: Fetching data for 29/07/2026
+2026-07-29 19:09:43,016 - INFO - ── SCRAPE: Selected 'All' entries
+2026-07-29 19:09:43,125 - INFO - ── SCRAPE: Download initiated...
+2026-07-29 19:09:45,126 - INFO - ── SCRAPE: Download confirmed: Daily Shares  ETFs 2023.csv
+2026-07-29 19:09:45,199 - INFO - ── SCRAPE: Browser closed
+2026-07-29 19:09:45,200 - INFO - ── CLEAN: Cleaning data...
+2026-07-29 19:09:45,244 - INFO - ── CLEAN: 41 rows cleaned successfully
+2026-07-29 19:09:45,244 - INFO - ── APPEND: Appending to main dataset...
+2026-07-29 19:09:45,305 - INFO - ── APPEND: 41 new rows added
+2026-07-29 19:09:45,306 - INFO - ✓ All steps completed successfully
