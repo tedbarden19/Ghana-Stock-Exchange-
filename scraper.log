@@ -525,3 +525,18 @@
 2026-08-11 18:57:48,510 - INFO - ── APPEND: Appending to main dataset...
 2026-08-11 18:57:48,568 - INFO - ── APPEND: 41 new rows added
 2026-08-11 18:57:48,569 - INFO - ✓ All steps completed successfully
+2026-08-12 18:57:14,973 - INFO - ══════════════════════════════════════
+2026-08-12 18:57:14,973 - INFO - GSE Scraper started at 2026-08-12 18:57:14.973700
+2026-08-12 18:57:14,973 - INFO - ══════════════════════════════════════
+2026-08-12 18:57:14,973 - INFO - ── SCRAPE: Starting browser...
+2026-08-12 18:57:15,369 - WARNING - The chromedriver version (150.0.7871.124) detected in PATH at /usr/bin/chromedriver might not be compatible with the detected chrome version (151.0.7922.137); currently, chromedriver 151.0.7922.138 is recommended for chrome 151.*, so it is advised to delete the driver in PATH and retry
+2026-08-12 18:57:15,988 - INFO - ── SCRAPE: Fetching data for 12/08/2026
+2026-08-12 18:57:38,502 - INFO - ── SCRAPE: Selected 'All' entries
+2026-08-12 18:57:38,585 - INFO - ── SCRAPE: Download initiated...
+2026-08-12 18:57:40,585 - INFO - ── SCRAPE: Download confirmed: Daily Shares  ETFs 2023.csv
+2026-08-12 18:57:40,661 - INFO - ── SCRAPE: Browser closed
+2026-08-12 18:57:40,661 - INFO - ── CLEAN: Cleaning data...
+2026-08-12 18:57:40,679 - INFO - ── CLEAN: 41 rows cleaned successfully
+2026-08-12 18:57:40,679 - INFO - ── APPEND: Appending to main dataset...
+2026-08-12 18:57:40,744 - INFO - ── APPEND: 41 new rows added
+2026-08-12 18:57:40,744 - INFO - ✓ All steps completed successfully
