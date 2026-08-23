@@ -2,7 +2,7 @@ name: GSE Daily Scrape
 
 on:
   schedule:
-    - cron: "0 18 * * 1-5"   # Run after Ghana market close (Mon-Fri)
+    - cron: "0 21 * * 1-5"   # Run after Ghana market close (Mon-Fri)
   workflow_dispatch:
 
 permissions:
