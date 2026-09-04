@@ -770,3 +770,19 @@
 2026-09-03 22:55:18,462 - INFO - ── APPEND: Skipped 41 row(s) already present for today's date
 2026-09-03 22:55:18,462 - INFO - ── APPEND: Nothing new to append
 2026-09-03 22:55:18,463 - INFO - ✓ All steps completed successfully
+2026-09-04 22:41:17,911 - INFO - ══════════════════════════════════════
+2026-09-04 22:41:17,911 - INFO -   GSE Scraper started at 2026-09-04 22:41:17.911828
+2026-09-04 22:41:17,911 - INFO - ══════════════════════════════════════
+2026-09-04 22:41:17,911 - INFO - ── SCRAPE: Starting browser...
+2026-09-04 22:41:19,420 - INFO - ── SCRAPE: Fetching data for 04/09/2026
+2026-09-04 22:41:43,384 - INFO - ── SCRAPE: Selected 'All' entries
+2026-09-04 22:41:43,464 - INFO - ── SCRAPE: Download initiated, waiting for file...
+2026-09-04 22:41:44,464 - INFO - ── SCRAPE: Download confirmed: Daily Shares  ETFs 2023.csv
+2026-09-04 22:41:44,538 - INFO - ── SCRAPE: Browser closed
+2026-09-04 22:41:44,538 - INFO - ── CLEAN: Found downloaded file: /home/runner/work/Ghana-Stock-Exchange-/Ghana-Stock-Exchange-/downloads/Daily Shares  ETFs 2023.csv
+2026-09-04 22:41:44,538 - INFO - ── CLEAN: Cleaning data...
+2026-09-04 22:41:44,553 - INFO - ── CLEAN: 41 rows cleaned (no index column)
+2026-09-04 22:41:44,553 - INFO - ── APPEND: Appending to main dataset...
+2026-09-04 22:41:44,615 - INFO - ── APPEND: Skipped 41 row(s) already present for today's date
+2026-09-04 22:41:44,615 - INFO - ── APPEND: Nothing new to append
+2026-09-04 22:41:44,616 - INFO - ✓ All steps completed successfully
