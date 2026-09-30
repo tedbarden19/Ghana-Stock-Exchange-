@@ -985,3 +985,16 @@
 2026-09-29 00:46:22,832 - INFO - ── CLEAN: Cleaning data...
 2026-09-29 00:46:22,834 - INFO - ── CLEAN: No data for today — the GSE has not published records yet. Stopping.
 2026-09-29 00:46:22,834 - INFO - ✗ Process stopped — no data available for today.
+2026-09-30 00:01:30,922 - INFO - ══════════════════════════════════════
+2026-09-30 00:01:30,922 - INFO -   GSE Scraper started at 2026-09-30 00:01:30.922105
+2026-09-30 00:01:30,922 - INFO - ══════════════════════════════════════
+2026-09-30 00:01:30,922 - INFO - ── SCRAPE: Starting browser...
+2026-09-30 00:01:33,373 - INFO - ── SCRAPE: Fetching data for 30/09/2026
+2026-09-30 00:01:57,926 - INFO - ── SCRAPE: Selected 'All' entries
+2026-09-30 00:01:57,988 - INFO - ── SCRAPE: Download initiated, waiting for file...
+2026-09-30 00:01:57,988 - INFO - ── SCRAPE: Download confirmed: Daily Shares  ETFs 2023.csv
+2026-09-30 00:01:58,068 - INFO - ── SCRAPE: Browser closed
+2026-09-30 00:01:58,068 - INFO - ── CLEAN: Found downloaded file: /home/runner/work/Ghana-Stock-Exchange-/Ghana-Stock-Exchange-/downloads/Daily Shares  ETFs 2023.csv
+2026-09-30 00:01:58,068 - INFO - ── CLEAN: Cleaning data...
+2026-09-30 00:01:58,070 - INFO - ── CLEAN: No data for today — the GSE has not published records yet. Stopping.
+2026-09-30 00:01:58,070 - INFO - ✗ Process stopped — no data available for today.
