@@ -998,3 +998,17 @@
 2026-09-30 00:01:58,068 - INFO - ── CLEAN: Cleaning data...
 2026-09-30 00:01:58,070 - INFO - ── CLEAN: No data for today — the GSE has not published records yet. Stopping.
 2026-09-30 00:01:58,070 - INFO - ✗ Process stopped — no data available for today.
+2026-10-01 00:17:33,359 - INFO - ══════════════════════════════════════
+2026-10-01 00:17:33,359 - INFO -   GSE Scraper started at 2026-10-01 00:17:33.359257
+2026-10-01 00:17:33,359 - INFO - ══════════════════════════════════════
+2026-10-01 00:17:33,359 - INFO - ── SCRAPE: Starting browser...
+2026-10-01 00:17:33,532 - WARNING - The chromedriver version (153.0.8010.52) detected in PATH at /usr/bin/chromedriver might not be compatible with the detected chrome version (154.0.8037.92); currently, chromedriver 154.0.8037.92 is recommended for chrome 154.*, so it is advised to delete the driver in PATH and retry
+2026-10-01 00:17:34,008 - INFO - ── SCRAPE: Fetching data for 01/10/2026
+2026-10-01 00:17:57,315 - INFO - ── SCRAPE: Selected 'All' entries
+2026-10-01 00:17:57,377 - INFO - ── SCRAPE: Download initiated, waiting for file...
+2026-10-01 00:17:57,377 - INFO - ── SCRAPE: Download confirmed: Daily Shares  ETFs 2023.csv
+2026-10-01 00:17:57,456 - INFO - ── SCRAPE: Browser closed
+2026-10-01 00:17:57,457 - INFO - ── CLEAN: Found downloaded file: /home/runner/work/Ghana-Stock-Exchange-/Ghana-Stock-Exchange-/downloads/Daily Shares  ETFs 2023.csv
+2026-10-01 00:17:57,457 - INFO - ── CLEAN: Cleaning data...
+2026-10-01 00:17:57,459 - INFO - ── CLEAN: No data for today — the GSE has not published records yet. Stopping.
+2026-10-01 00:17:57,459 - INFO - ✗ Process stopped — no data available for today.
