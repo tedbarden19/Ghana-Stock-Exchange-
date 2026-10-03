@@ -21,13 +21,15 @@ jobs:
 
     steps:
       - name: Checkout repository
+        timeout-minutes: 5   # normally takes seconds; fail fast if the runner stalls
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-          cache: pip
 
       # NOTE: no Chrome install step. ubuntu-latest already ships Chrome and a
       # matching chromedriver. Installing google-chrome-stable on top is what
@@ -37,6 +39,8 @@ jobs:
 
       # Starts from the day after the last date in Data.csv, weekdays only.
       - name: Run GSE Scraper
+        env:
+          PYTHONUNBUFFERED: "1"   # show progress live in the Actions log
         run: python main.py
 
       - name: Upload debug artifacts
@@ -50,8 +54,9 @@ jobs:
             downloads/
           if-no-files-found: ignore
 
+      # always(): keep the days that were saved even if a later day failed
       - name: Commit updated Data.csv
-        if: success()
+        if: always()
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
