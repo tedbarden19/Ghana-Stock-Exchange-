@@ -18,6 +18,7 @@ TZ = ZoneInfo("Africa/Accra")
 DATE_COL = "Daily Date"
 CODE_COL = "Share Code"
 
+# Final column names/order (currency symbol removed on purpose; all prices are GH¢).
 FINAL_COLS = [
     DATE_COL, CODE_COL,
     "Year High", "Year Low", "Previous Closing Price - VWAP",
@@ -26,7 +27,7 @@ FINAL_COLS = [
     "Total Shares Traded", "Total Value Traded",
 ]
 NUMERIC_COLS = FINAL_COLS[2:]
-# Replacing blank cells with 0
+# Blank here really means "nothing happened", so 0 is the honest value.
 FILL_ZERO_COLS = ["Closing Bid Price", "Closing Offer Price",
                   "Total Shares Traded", "Total Value Traded"]
 
@@ -43,6 +44,7 @@ def log(msg, level="info"):
     getattr(logging, level)(msg)
 
 
+# ───────────────────────── cleaning helpers ─────────────────────────
 def normalize_header(name):
     """'Year Low (GH¢)' / 'Year Low (GHÂ¢)' -> 'Year Low'."""
     name = str(name).replace("\ufeff", "").strip()
@@ -134,8 +136,9 @@ def clean_download(filepath):
 
 
 # ───────────────────────── scraping ─────────────────────────
-PAGE_SIZE = "100"   # rows-per-page option to select on the site
-MAX_ROWS = 100     
+PAGE_SIZE = "All"   # rows-per-page option to select on the site ("All" or e.g. "100")
+# Truncation guard only makes sense for a numeric page size.
+MAX_ROWS = int(PAGE_SIZE) if PAGE_SIZE.isdigit() else None
 URL = "https://gse.com.gh/trading-and-data/"
 BASE_XPATH = ("/html/body/div[1]/div/div[3]/div[1]/div/div/div/div[4]/div[2]"
               "/div/div/div/div[2]")
@@ -190,16 +193,31 @@ def _download_day(driver, day):
     to_in.send_keys(Keys.RETURN)
     time.sleep(10)
 
-    # Pick the page size by its visible text (not by position in the list).
+    # Pick the page size by its visible text (case-insensitive), falling back to
+    # the list position that worked in the original script for "All".
     try:
         wait.until(EC.element_to_be_clickable(
             (By.XPATH, BASE_XPATH + "/div[2]/div[3]/label/div/button"))).click()
         time.sleep(2)
-        wait.until(EC.element_to_be_clickable(
-            (By.XPATH, BASE_XPATH + "/div[2]/div[3]/label/div/div/ul/li/a"
-                       f"[normalize-space()='{PAGE_SIZE}']"))).click()
+        items = BASE_XPATH + "/div[2]/div[3]/label/div/div/ul"
+        by_text = (items + "/li/a[translate(normalize-space(.), "
+                   "'abcdefghijklmnopqrstuvwxyz', 'ABCDEFGHIJKLMNOPQRSTUVWXYZ')="
+                   f"'{PAGE_SIZE.upper()}']")
+        candidates = [by_text]
+        if PAGE_SIZE.upper() == "ALL":
+            candidates.append(items + "/li[7]/a")
+        last_err = None
+        for xp in candidates:
+            try:
+                wait.until(EC.element_to_be_clickable((By.XPATH, xp))).click()
+                last_err = None
+                break
+            except Exception as e:
+                last_err = e
+        if last_err:
+            raise last_err
         time.sleep(8)
-        log(f"── SCRAPE: Selected {PAGE_SIZE} entries per page")
+        log(f"── SCRAPE: Selected '{PAGE_SIZE}' entries per page")
     except Exception as e:
         # Fail loudly: a truncated download would never be backfilled.
         raise RuntimeError(f"Could not select '{PAGE_SIZE}' entries: {e}") from e
@@ -288,7 +306,7 @@ def run(since=None, clean_only=False):
     for day, path in results:
         df = clean_download(path)
         df = df[df[DATE_COL] == pd.Timestamp(day)]
-        if len(df) >= MAX_ROWS:
+        if MAX_ROWS and len(df) >= MAX_ROWS:
             error = RuntimeError(f"{day}: {len(df)} rows >= {MAX_ROWS}; page size "
                                  f"may be truncating. Stopping before this day.")
             log(f"── {error}", "error")
