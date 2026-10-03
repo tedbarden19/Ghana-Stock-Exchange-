@@ -1,280 +1,331 @@
+import argparse
 import datetime
 import logging
 import os
+import re
+import shutil
 import time
+from zoneinfo import ZoneInfo
+
 import pandas as pd
-from selenium import webdriver
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.common.keys import Keys
 
-
-# ---------------------------------------------------------------------------
-# Paths & logging
-# ---------------------------------------------------------------------------
-BASE_DIR       = os.path.dirname(os.path.abspath(__file__))
-DOWNLOAD_DIR   = os.path.join(BASE_DIR, "downloads")
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DOWNLOAD_DIR = os.path.join(BASE_DIR, "downloads")
 MAIN_DATA_FILE = os.path.join(BASE_DIR, "Data.csv")
-LOG_FILE       = os.path.join(BASE_DIR, "scraper.log")
+LOG_FILE = os.path.join(BASE_DIR, "scraper.log")
+TZ = ZoneInfo("Africa/Accra")
 
-os.makedirs(DOWNLOAD_DIR, exist_ok=True)
+DATE_COL = "Daily Date"
+CODE_COL = "Share Code"
+
+FINAL_COLS = [
+    DATE_COL, CODE_COL,
+    "Year High", "Year Low", "Previous Closing Price - VWAP",
+    "Opening Price", "Last Transaction Price", "Closing Price - VWAP",
+    "Price Change", "Closing Bid Price", "Closing Offer Price",
+    "Total Shares Traded", "Total Value Traded",
+]
+NUMERIC_COLS = FINAL_COLS[2:]
+# Replacing blank cells with 0
+FILL_ZERO_COLS = ["Closing Bid Price", "Closing Offer Price",
+                  "Total Shares Traded", "Total Value Traded"]
 
 logging.basicConfig(
     filename=LOG_FILE,
     level=logging.INFO,
-    format="%(asctime)s - %(levelname)s - %(message)s"
+    format="%(asctime)s - %(levelname)s - %(message)s",
+    encoding="utf-8",
 )
+
 
 def log(msg, level="info"):
     print(msg)
     getattr(logging, level)(msg)
 
 
-# ---------------------------------------------------------------------------
-# Numeric columns that may contain thousand-separator commas
-# ---------------------------------------------------------------------------
-NUMERIC_COLS = [
-    'Year High (GH¢)', 'Year Low (GH¢)',
-    'Previous Closing Price - VWAP (GH¢)',
-    'Opening Price (GH¢)', 'Last Transaction Price (GH¢)',
-    'Closing Price - VWAP (GH¢)', 'Price Change (GH¢)',
-    'Closing Bid Price (GH¢)', 'Closing Offer Price (GH¢)',
-    'Total Shares Traded', 'Total Value Traded (GH¢)'
-]
+def normalize_header(name):
+    """'Year Low (GH¢)' / 'Year Low (GHÂ¢)' -> 'Year Low'."""
+    name = str(name).replace("\ufeff", "").strip()
+    name = re.sub(r"\s*\(\s*GH[^)]*\)", "", name)
+    return re.sub(r"\s+", " ", name).strip()
 
 
-# ---------------------------------------------------------------------------
-# 1. SCRAPE
-# ---------------------------------------------------------------------------
-def scrape():
-    log("── SCRAPE: Starting browser...")
+def parse_mixed_dates(s):
+    """Parse a column holding a mix of YYYY-MM-DD and M/D/YYYY text."""
+    s = s.astype(str).str.strip()
+    is_iso = s.str.match(r"^\d{4}-\d{2}-\d{2}")
+    iso = pd.to_datetime(s.where(is_iso).str[:10], format="%Y-%m-%d", errors="coerce")
+    us = pd.to_datetime(s.where(~is_iso), format="%m/%d/%Y", errors="coerce")
+    return iso.fillna(us)
 
-    chrome_options = Options()
-    chrome_options.add_argument("--headless=new")
-    chrome_options.add_argument("--no-sandbox")
-    chrome_options.add_argument("--disable-dev-shm-usage")
-    chrome_options.add_argument("--disable-gpu")
-    chrome_options.add_argument("--window-size=1920,1080")
 
-    prefs = {
+def format_dates(s):
+    """Datetime -> M/D/YYYY text (no zero padding, same as the historical rows)."""
+    return (s.dt.month.astype(str) + "/" + s.dt.day.astype(str) + "/" + s.dt.year.astype(str))
+
+
+def standardize(df):
+    """Common cleaning for both the downloaded file and the existing Data.csv."""
+    df = df.loc[:, ~df.columns.astype(str).str.match(r"^Unnamed")].copy()
+    df.columns = [normalize_header(c) for c in df.columns]
+
+    missing = [c for c in FINAL_COLS if c not in df.columns]
+    if missing:
+        raise ValueError(f"Expected columns missing from data: {missing}. "
+                         f"Found: {list(df.columns)}")
+    df = df[FINAL_COLS]
+
+    df[CODE_COL] = df[CODE_COL].astype(str).str.replace("*", "", regex=False).str.strip()
+    df = df[df[CODE_COL].ne("") & df[CODE_COL].str.lower().ne("nan")]
+
+    for col in NUMERIC_COLS:
+        if df[col].dtype == object or str(df[col].dtype).startswith("str"):
+            df[col] = df[col].astype(str).str.replace(",", "", regex=False).str.strip()
+        df[col] = pd.to_numeric(df[col], errors="coerce")
+    df[FILL_ZERO_COLS] = df[FILL_ZERO_COLS].fillna(0)
+    return df
+
+
+def finalize(df):
+    """Dedupe + sort (stable, so share order within a day is preserved)."""
+    df = df.copy()
+    df[DATE_COL] = pd.to_datetime(df[DATE_COL], errors="coerce")
+    df = df.dropna(subset=[DATE_COL])
+    df = df.drop_duplicates(subset=[DATE_COL, CODE_COL], keep="last")
+    return df.sort_values(DATE_COL, kind="mergesort").reset_index(drop=True)
+
+
+def load_existing():
+    if not os.path.exists(MAIN_DATA_FILE):
+        return pd.DataFrame(columns=FINAL_COLS)
+    raw = pd.read_csv(MAIN_DATA_FILE, encoding="utf-8-sig", dtype=str)
+    raw.columns = [normalize_header(c) for c in raw.columns]
+    raw[DATE_COL] = parse_mixed_dates(raw[DATE_COL])
+    bad = raw[DATE_COL].isna().sum()
+    if bad:
+        log(f"── LOAD: dropping {bad} rows in Data.csv with unreadable dates", "warning")
+    return finalize(standardize(raw))
+
+
+def save(df):
+    out = df.copy()
+    out["Total Shares Traded"] = out["Total Shares Traded"].round().astype("Int64")
+    out[DATE_COL] = format_dates(out[DATE_COL])
+    tmp = MAIN_DATA_FILE + ".tmp"
+    out.to_csv(tmp, index=False, encoding="utf-8")
+    os.replace(tmp, MAIN_DATA_FILE)
+
+
+def clean_download(filepath):
+    log("── CLEAN: Cleaning downloaded file...")
+    raw = pd.read_csv(filepath, encoding="utf-8-sig", dtype=str)
+    if raw.empty:
+        log("── CLEAN: Downloaded file has no rows.")
+        return pd.DataFrame(columns=FINAL_COLS)
+    raw.columns = [str(c).strip() for c in raw.columns]
+    date_src = next((c for c in raw.columns if normalize_header(c) == DATE_COL), None)
+    if date_src is None:
+        raise ValueError(f"No '{DATE_COL}' column in download. Found: {list(raw.columns)}")
+    raw[date_src] = pd.to_datetime(raw[date_src], dayfirst=True, errors="coerce")
+    raw = raw.dropna(subset=[date_src])
+    df = standardize(raw)
+    log(f"── CLEAN: {len(df)} rows cleaned")
+    return df
+
+
+# ───────────────────────── scraping ─────────────────────────
+PAGE_SIZE = "100"   # rows-per-page option to select on the site
+MAX_ROWS = 100     
+URL = "https://gse.com.gh/trading-and-data/"
+BASE_XPATH = ("/html/body/div[1]/div/div[3]/div[1]/div/div/div/div[4]/div[2]"
+              "/div/div/div/div[2]")
+
+
+def trading_days(start, end):
+    """Mon-Fri dates from start to end inclusive (GSE does not publish at weekends)."""
+    n = (end - start).days + 1
+    return [start + datetime.timedelta(days=i) for i in range(n)
+            if (start + datetime.timedelta(days=i)).weekday() < 5]
+
+
+def _new_driver():
+    from selenium import webdriver
+    from selenium.webdriver.chrome.options import Options
+    opts = Options()
+    for a in ("--headless=new", "--no-sandbox", "--disable-dev-shm-usage",
+              "--disable-gpu", "--window-size=1920,1080"):
+        opts.add_argument(a)
+    opts.add_experimental_option("prefs", {
         "download.default_directory": DOWNLOAD_DIR,
         "download.prompt_for_download": False,
         "download.directory_upgrade": True,
-        "safebrowsing.enabled": True
-    }
-    chrome_options.add_experimental_option("prefs", prefs)
-
-    driver = webdriver.Chrome(options=chrome_options)
-
-    driver.execute_cdp_cmd("Page.setDownloadBehavior", {
-        "behavior": "allow",
-        "downloadPath": DOWNLOAD_DIR
+        "safebrowsing.enabled": True,
     })
+    driver = webdriver.Chrome(options=opts)
+    driver.execute_cdp_cmd("Page.setDownloadBehavior",
+                           {"behavior": "allow", "downloadPath": DOWNLOAD_DIR})
+    return driver
 
+
+def _download_day(driver, day):
+    """Download one trading day. Returns the path of the CSV."""
+    from selenium.webdriver.common.by import By
+    from selenium.webdriver.common.keys import Keys
+    from selenium.webdriver.support import expected_conditions as EC
+    from selenium.webdriver.support.ui import WebDriverWait
+
+    day_str = day.strftime("%d/%m/%Y")
+    log(f"── SCRAPE: Fetching {day_str}")
+    driver.get(URL)  # fresh page state for every day
+    wait = WebDriverWait(driver, 30)
+
+    from_in = wait.until(EC.presence_of_element_located(
+        (By.XPATH, BASE_XPATH + "/div[1]/div/div[1]/div/span/input[1]")))
+    from_in.clear()
+    from_in.send_keys(day_str)
+    to_in = wait.until(EC.presence_of_element_located(
+        (By.XPATH, BASE_XPATH + "/div[1]/div/div[1]/div/span/input[2]")))
+    to_in.clear()
+    to_in.send_keys(day_str)
+    to_in.send_keys(Keys.RETURN)
+    time.sleep(10)
+
+    # Pick the page size by its visible text (not by position in the list).
     try:
-        current_date = datetime.date.today().strftime("%d/%m/%Y")
-        log(f"── SCRAPE: Fetching data for {current_date}")
-
-        driver.get("https://gse.com.gh/trading-and-data/")
-        wait = WebDriverWait(driver, 20)
-
-        from_date_input = wait.until(EC.presence_of_element_located((By.XPATH,
-            "/html/body/div[1]/div/div[3]/div[1]/div/div/div/div[4]/div[2]/div/div/div/div[2]/div[1]/div/div[1]/div/span/input[1]")))
-        from_date_input.clear()
-        from_date_input.send_keys(current_date)
-
-        to_date_input = wait.until(EC.presence_of_element_located((By.XPATH,
-            "/html/body/div[1]/div/div[3]/div[1]/div/div/div/div[4]/div[2]/div/div/div/div[2]/div[1]/div/div[1]/div/span/input[2]")))
-        to_date_input.clear()
-        to_date_input.send_keys(current_date)
-        to_date_input.send_keys(Keys.RETURN)
-        time.sleep(10)
-
-        try:
-            dropdown_button = wait.until(EC.element_to_be_clickable((By.XPATH,
-                "/html/body/div[1]/div/div[3]/div[1]/div/div/div/div[4]/div[2]/div/div/div/div[2]/div[2]/div[3]/label/div/button")))
-            dropdown_button.click()
-            time.sleep(1)
-
-            all_option = wait.until(EC.element_to_be_clickable((By.XPATH,
-                "/html/body/div[1]/div/div[3]/div[1]/div/div/div/div[4]/div[2]/div/div/div/div[2]/div[2]/div[3]/label/div/div/ul/li[7]/a")))
-            all_option.click()
-            time.sleep(10)
-            log("── SCRAPE: Selected 'All' entries")
-        except Exception as e:
-            log(f"── SCRAPE: Could not select 'All' option: {e}", "warning")
-
-        csv_button = wait.until(EC.element_to_be_clickable((By.XPATH,
-            "/html/body/div[1]/div/div[3]/div[1]/div/div/div/div[4]/div[2]/div/div/div/div[2]/div[2]/div[1]/button[3]")))
-        csv_button.click()
-        log("── SCRAPE: Download initiated, waiting for file...")
-
-        _wait_for_download(timeout=30)
-
+        wait.until(EC.element_to_be_clickable(
+            (By.XPATH, BASE_XPATH + "/div[2]/div[3]/label/div/button"))).click()
+        time.sleep(2)
+        wait.until(EC.element_to_be_clickable(
+            (By.XPATH, BASE_XPATH + "/div[2]/div[3]/label/div/div/ul/li/a"
+                       f"[normalize-space()='{PAGE_SIZE}']"))).click()
+        time.sleep(8)
+        log(f"── SCRAPE: Selected {PAGE_SIZE} entries per page")
     except Exception as e:
+        # Fail loudly: a truncated download would never be backfilled.
+        raise RuntimeError(f"Could not select '{PAGE_SIZE}' entries: {e}") from e
+
+    before = set(os.listdir(DOWNLOAD_DIR))
+    wait.until(EC.element_to_be_clickable(
+        (By.XPATH, BASE_XPATH + "/div[2]/div[1]/button[3]"))).click()
+    log("── SCRAPE: Download initiated...")
+    path = _wait_for_download(before, timeout=60)
+    final = os.path.join(DOWNLOAD_DIR, f"{day:%Y-%m-%d}.csv")
+    os.replace(path, final)
+    return final
+
+
+def _wait_for_download(before, timeout=60, poll=2):
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        files = set(os.listdir(DOWNLOAD_DIR))
+        if not any(f.endswith(".crdownload") for f in files):
+            new = [f for f in files - before if f.endswith(".csv")]
+            if new:
+                path = os.path.join(DOWNLOAD_DIR, new[0])
+                log(f"── SCRAPE: Download confirmed ({os.path.getsize(path)} bytes)")
+                return path
+        time.sleep(poll)
+    raise TimeoutError("No completed CSV download detected")
+
+
+def scrape(days):
+    """Download each day in order. Returns (results, error).
+
+    Stops at the first failing day so we never save later days while leaving a
+    gap behind them (the next run would start after the gap and skip it).
+    """
+    log(f"── SCRAPE: Starting browser for {len(days)} trading day(s)...")
+    if os.path.exists(DOWNLOAD_DIR):
+        shutil.rmtree(DOWNLOAD_DIR)
+    os.makedirs(DOWNLOAD_DIR, exist_ok=True)
+
+    driver = _new_driver()
+    results, error = [], None
+    try:
+        for day in days:
+            results.append((day, _download_day(driver, day)))
+    except Exception as e:
+        error = e
         log(f"── SCRAPE ERROR: {e}", "error")
         try:
             driver.save_screenshot(os.path.join(BASE_DIR, "error_screenshot.png"))
         except Exception:
             pass
-        raise
     finally:
         driver.quit()
         log("── SCRAPE: Browser closed")
+    return results, error
 
 
-def _wait_for_download(timeout=30, poll=1):
-    deadline = time.time() + timeout
-    while time.time() < deadline:
-        files = os.listdir(DOWNLOAD_DIR)
-        has_partial = any(f.endswith(".crdownload") for f in files)
-        csvs = [f for f in files if f.endswith(".csv")]
-        if csvs and not has_partial:
-            log(f"── SCRAPE: Download confirmed: {csvs[-1]}")
-            return
-        time.sleep(poll)
-    raise TimeoutError(
-        f"No completed CSV download detected in {DOWNLOAD_DIR} after {timeout}s. "
-        "Check error_screenshot.png / scraper.log."
-    )
+# ───────────────────────── main ─────────────────────────
+def run(since=None, clean_only=False):
+    existing = load_existing()
+    log(f"── LOAD: {len(existing)} existing rows"
+        + (f", last date {existing[DATE_COL].max():%Y-%m-%d}" if len(existing) else ""))
 
-
-# ---------------------------------------------------------------------------
-# 2. FIND LATEST DOWNLOAD
-# ---------------------------------------------------------------------------
-def get_latest_download():
-    csv_files = [
-        os.path.join(DOWNLOAD_DIR, f)
-        for f in os.listdir(DOWNLOAD_DIR)
-        if f.endswith(".csv")
-    ]
-    if not csv_files:
-        raise FileNotFoundError(f"No CSV files found in {DOWNLOAD_DIR}")
-    latest = max(csv_files, key=os.path.getmtime)
-    log(f"── CLEAN: Found downloaded file: {latest}")
-    return latest
-
-
-# ---------------------------------------------------------------------------
-# 3. CLEAN
-# ---------------------------------------------------------------------------
-def clean(filepath):
-    log("── CLEAN: Cleaning data...")
-    df = pd.read_csv(filepath)
-
-    if df.empty:
-        log("── CLEAN: No data for today — the GSE has not published records yet. Stopping.")
-        return None
-
-    # ------------------------------------------------------------------
-    # Remove any index / primary-key style columns
-    # (Unnamed: 0, Unnamed: 0.1, etc.)
-    # ------------------------------------------------------------------
-    df = df.loc[:, ~df.columns.str.match(r"^Unnamed")]
-    df.columns = df.columns.str.strip()
-
-    # Extra safety: drop a column that is literally named "index" or similar
-    for bad_col in ["index", "Index", "Unnamed: 0", "level_0"]:
-        if bad_col in df.columns:
-            df = df.drop(columns=[bad_col])
-
-    # Parse date (GSE uses DD/MM/YYYY)
-    df['Daily Date'] = pd.to_datetime(
-        df['Daily Date'], format="%d/%m/%Y", errors='coerce'
-    )
-
-    # Clean share codes
-    df['Share Code'] = (
-        df['Share Code']
-        .astype(str)
-        .str.replace(r'[\*]+', '', regex=True)
-        .str.strip()
-    )
-
-    # Strip thousand-separator commas (works with pandas StringDtype)
-    for col in NUMERIC_COLS:
-        if col not in df.columns:
-            continue
-        df[col] = (
-            df[col]
-            .astype(str)
-            .str.replace(',', '', regex=False)
-            .str.replace('\u00a0', '', regex=False)
-            .str.strip()
-            .replace({'': None, 'nan': None, 'None': None, 'NaN': None})
-        )
-        df[col] = pd.to_numeric(df[col], errors='coerce')
-
-    # Missing bid / offer → 0
-    for col in ['Closing Bid Price (GH¢)', 'Closing Offer Price (GH¢)']:
-        if col in df.columns:
-            df[col] = df[col].fillna(0)
-
-    # Reset index so no hidden index travels with the DataFrame
-    df = df.reset_index(drop=True)
-
-    log(f"── CLEAN: {len(df)} rows cleaned (no index column)")
-    return df
-
-
-# ---------------------------------------------------------------------------
-# 4. APPEND TO MAIN DATASET
-# ---------------------------------------------------------------------------
-def append_to_main(df):
-    log("── APPEND: Appending to main dataset...")
-
-    write_header = not os.path.exists(MAIN_DATA_FILE)
-
-    if not write_header:
-        try:
-            existing = pd.read_csv(MAIN_DATA_FILE, low_memory=False)
-            existing['Daily Date'] = pd.to_datetime(
-                existing['Daily Date'], dayfirst=True, errors='coerce'
-            )
-
-            before = len(df)
-            df = df[~df['Daily Date'].isin(existing['Daily Date'].dropna())].copy()
-            skipped = before - len(df)
-            if skipped:
-                log(f"── APPEND: Skipped {skipped} row(s) already present for today's date")
-        except Exception as e:
-            log(f"── APPEND: Could not check for duplicates ({e}), appending as-is", "warning")
-
-    if df.empty:
-        log("── APPEND: Nothing new to append")
+    if clean_only:
+        save(existing)
+        log(f"── CLEAN-ONLY: Data.csv rewritten with {len(existing)} rows")
         return
 
-    # ISO date format + guarantee no index is written
-    df = df.copy()
-    df['Daily Date'] = df['Daily Date'].dt.strftime('%Y-%m-%d')
-    df = df.reset_index(drop=True)          # final safety
+    today = datetime.datetime.now(TZ).date()
+    if since:
+        start = since
+    elif len(existing):
+        start = existing[DATE_COL].max().date() + datetime.timedelta(days=1)
+    else:
+        start = today
 
-    # index=False is the critical setting – never write row numbers
-    df.to_csv(MAIN_DATA_FILE, mode='a', header=write_header, index=False)
-    log(f"── APPEND: {len(df)} new rows added to {MAIN_DATA_FILE} (no index column)")
+    days = trading_days(start, today) if start <= today else []
+    if not days:
+        log("── Nothing to fetch (up to date, or only weekend days in range).")
+        save(existing)
+        return
+
+    results, error = scrape(days)
+
+    frames = []
+    for day, path in results:
+        df = clean_download(path)
+        df = df[df[DATE_COL] == pd.Timestamp(day)]
+        if len(df) >= MAX_ROWS:
+            error = RuntimeError(f"{day}: {len(df)} rows >= {MAX_ROWS}; page size "
+                                 f"may be truncating. Stopping before this day.")
+            log(f"── {error}", "error")
+            break
+        if df.empty:
+            log(f"── {day}: no data published (holiday, or not uploaded yet).")
+            continue
+        frames.append(df)
+
+    new = pd.concat(frames, ignore_index=True) if frames else pd.DataFrame(columns=FINAL_COLS)
+    if new.empty:
+        log("── No new trading data. Will retry on the next run.")
+        save(existing)
+    else:
+        combined = finalize(pd.concat([existing, new], ignore_index=True))
+        save(combined)
+        got = sorted(new[DATE_COL].dt.strftime("%Y-%m-%d").unique())
+        log(f"── APPEND: {len(combined) - len(existing)} new rows for "
+            f"{len(got)} day(s): {', '.join(got)}")
+
+    if error:
+        raise error  # run turns red, but days gathered before the failure are saved
 
 
-# ---------------------------------------------------------------------------
-# MAIN
-# ---------------------------------------------------------------------------
 if __name__ == "__main__":
-    log("══════════════════════════════════════")
-    log(f"  GSE Scraper started at {datetime.datetime.now()}")
-    log("══════════════════════════════════════")
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--since", help="Backfill from this date (YYYY-MM-DD)")
+    ap.add_argument("--clean-only", action="store_true", help="Clean Data.csv, no scraping")
+    args = ap.parse_args()
+    since = datetime.date.fromisoformat(args.since) if args.since else None
 
+    log("══════════════════════════════════════")
+    log(f"GSE Scraper started at {datetime.datetime.now(TZ)}")
+    log("══════════════════════════════════════")
     try:
-        scrape()
-        latest_file = get_latest_download()
-        cleaned_df  = clean(latest_file)
-
-        if cleaned_df is None:
-            log("✗ Process stopped — no data available for today.")
-        else:
-            append_to_main(cleaned_df)
-            log("✓ All steps completed successfully")
-
+        run(since=since, clean_only=args.clean_only)
+        log("✓ Finished")
     except Exception as e:
         log(f"✗ Fatal error: {e}", "error")
         raise
