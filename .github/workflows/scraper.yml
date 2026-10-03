@@ -51,6 +51,7 @@ jobs:
           path: |
             error_screenshot.png
             scraper.log
+            Data.csv
             downloads/
           if-no-files-found: ignore
 
@@ -62,5 +63,5 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add Data.csv scraper.log
           git diff --quiet --cached || git commit -m "Update GSE data $(date -u +'%Y-%m-%d %H:%M UTC')"
-          git pull --rebase
+          git pull --rebase --autostash
           git push
