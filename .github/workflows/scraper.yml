@@ -2,16 +2,28 @@ name: GSE Daily Scrape
 
 on:
   schedule:
-    - cron: "0 21 * * 1-5"   # Run after Ghana market close (Mon-Fri)
+    # Off-peak minute on purpose: GitHub delays jobs scheduled on the hour by hours.
+    # Self-heals anyway: main.py backfills every day missing since the last row.
+    - cron: "37 20 * * 1-5"
   workflow_dispatch:
+    inputs:
+      since:
+        description: "Optional backfill start date (YYYY-MM-DD), e.g. 2026-08-26"
+        required: false
+        default: ""
 
 permissions:
   contents: write
 
+concurrency:
+  group: gse-scrape
+  cancel-in-progress: false
+
 jobs:
   scrape:
     runs-on: ubuntu-latest
-    
+    timeout-minutes: 60
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -20,27 +32,24 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+          cache: pip
 
-      - name: Install system dependencies + Chrome
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y wget unzip xvfb
-          
-          # Install Google Chrome
-          wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | sudo apt-key add -
-          echo 'deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main' | sudo tee /etc/apt/sources.list.d/google-chrome.list
-          sudo apt-get update
-          sudo apt-get install -y google-chrome-stable
-
+      # NOTE: no Chrome install step. ubuntu-latest already ships Chrome and a
+      # matching chromedriver. Installing google-chrome-stable on top is what
+      # caused the "chromedriver might not be compatible" warnings in the log.
       - name: Install Python dependencies
-        run: |
-          pip install selenium pandas
+        run: pip install selenium pandas
 
       - name: Run GSE Scraper
-        run: python main.py
+        run: |
+          if [ -n "${{ github.event.inputs.since }}" ]; then
+            python main.py --since "${{ github.event.inputs.since }}"
+          else
+            python main.py
+          fi
 
-      - name: Upload debug artifacts (on failure)
-        if: failure()
+      - name: Upload debug artifacts
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: debug-files
@@ -51,9 +60,11 @@ jobs:
           if-no-files-found: ignore
 
       - name: Commit updated Data.csv
+        if: success()
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add Data.csv scraper.log
           git diff --quiet --cached || git commit -m "Update GSE data $(date -u +'%Y-%m-%d %H:%M UTC')"
+          git pull --rebase
           git push
