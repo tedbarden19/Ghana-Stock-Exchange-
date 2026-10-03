@@ -3,14 +3,9 @@ name: GSE Daily Scrape
 on:
   schedule:
     # Off-peak minute on purpose: GitHub delays jobs scheduled on the hour by hours.
-    # Self-heals anyway: main.py backfills every day missing since the last row.
+    # Self-heals anyway: main.py fetches every weekday after the last date in Data.csv.
     - cron: "37 20 * * 1-5"
-  workflow_dispatch:
-    inputs:
-      since:
-        description: "Optional backfill start date (YYYY-MM-DD), e.g. 2026-08-26"
-        required: false
-        default: ""
+  workflow_dispatch:   # manual "Run workflow" button, no inputs needed
 
 permissions:
   contents: write
@@ -40,13 +35,9 @@ jobs:
       - name: Install Python dependencies
         run: pip install selenium pandas
 
+      # Starts from the day after the last date in Data.csv, weekdays only.
       - name: Run GSE Scraper
-        run: |
-          if [ -n "${{ github.event.inputs.since }}" ]; then
-            python main.py --since "${{ github.event.inputs.since }}"
-          else
-            python main.py
-          fi
+        run: python main.py
 
       - name: Upload debug artifacts
         if: always()
