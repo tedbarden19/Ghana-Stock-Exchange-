@@ -4,7 +4,7 @@ on:
   schedule:
     # Off-peak minute on purpose: GitHub delays jobs scheduled on the hour by hours.
     # Self-heals anyway: main.py fetches every weekday after the last date in Data.csv.
-    - cron: "37 20 * * 1-5"
+    - cron: "30 22 * * 1-5"
   workflow_dispatch:   # manual "Run workflow" button, no inputs needed
 
 permissions:
