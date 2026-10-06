@@ -43,7 +43,8 @@ INDEX_COLS = ["Date", "Volume", "GSE-CI", "Market Cap (GH¢ m)", "GSE-FSI"]
 INDEX_PAGE_URL = "https://gse.com.gh/trading-and-data/"
 INDEX_AJAX_URL = "https://gse.com.gh/wp-admin/admin-ajax.php"
 INDEX_HEADER_MARKER = "Financial Stock Index"
-INDEX_PAGE_SIZE = 100
+INDEX_PAGE_SIZE = 100          # used for --since backfills
+INDEX_INCREMENTAL_PAGE_SIZE = 10  # used for the normal daily run
 INDEX_DELAY = 1.0
 
 logging.basicConfig(
@@ -361,11 +362,12 @@ def _discover_index_table(session):
     raise RuntimeError("Index (Daily Market Summary) table not found on page")
 
 
-def _fetch_index_page(session, table_id, nonce, n_cols, order_col, start, draw):
+def _fetch_index_page(session, table_id, nonce, n_cols, order_col, start, draw,
+                      length=INDEX_PAGE_SIZE):
     payload = {
         "draw": draw,
         "start": start,
-        "length": INDEX_PAGE_SIZE,
+        "length": length,
         "order[0][column]": order_col,
         "order[0][dir]": "desc",
         "search[value]": "",
@@ -396,9 +398,14 @@ def _fetch_index_page(session, table_id, nonce, n_cols, order_col, start, draw):
     raise RuntimeError(f"Index fetch gave up at start={start}")
 
 
-def scrape_index():
+def scrape_index(min_date=None, latest_only=False, page_size=None):
     """
-    Pull the full Daily Market Summary table via AJAX.
+    Pull the Daily Market Summary table via AJAX, newest rows first.
+
+    latest_only  -> fetch just the single most recent row.
+    min_date     -> keep paging back until a page reaches a date older than
+                    min_date, then stop (so a normal run is one small request).
+    neither      -> full history (only used for explicit backfills).
     Returns a DataFrame with columns INDEX_COLS and Date as datetime.
     """
     log("── INDEX: Discovering table …")
@@ -408,10 +415,19 @@ def scrape_index():
     n_cols = len(cols)
     log(f"── INDEX: table_id={table_id}  columns={cols}")
 
+    if page_size is None:
+        if latest_only:
+            page_size = 1
+        elif min_date is not None:
+            page_size = INDEX_INCREMENTAL_PAGE_SIZE
+        else:
+            page_size = INDEX_PAGE_SIZE
+
     rows, start, draw = [], 0, 1
     while True:
         js = _fetch_index_page(
-            session, table_id, nonce, n_cols, order_col, start, draw
+            session, table_id, nonce, n_cols, order_col, start, draw,
+            length=page_size,
         )
         batch = js.get("data", [])
         total = int(js.get("recordsFiltered", js.get("recordsTotal", 0)))
@@ -419,8 +435,13 @@ def scrape_index():
         log(f"── INDEX: fetched {len(rows)} / {total}")
         start += len(batch)
         draw += 1
-        if not batch or start >= total:
+        if not batch or start >= total or latest_only:
             break
+        if min_date is not None:
+            # Table is sorted newest -> oldest, so the last row is the oldest.
+            oldest = pd.to_datetime(batch[-1][-5], format="%d/%m/%Y", errors="coerce")
+            if pd.notna(oldest) and oldest < min_date:
+                break
         time.sleep(INDEX_DELAY)
 
     # Site order: [wdt_ID, Day, Date, Volume, GSE-CI, Market Cap, GSE-FSI]
@@ -436,6 +457,9 @@ def scrape_index():
         )
     raw = raw.dropna(subset=["Date"]).drop_duplicates(subset=["Date"], keep="last")
     raw = raw.sort_values("Date").reset_index(drop=True)
+    if raw.empty:
+        log("── INDEX: site returned no usable rows", "warning")
+        return raw[INDEX_COLS]
     log(f"── INDEX: {len(raw)} clean rows "
         f"({raw['Date'].min().date()} → {raw['Date'].max().date()})")
     return raw[INDEX_COLS]
@@ -483,19 +507,36 @@ def save_index(df):
 
 def update_index(since=None):
     """
-    Fetch full index history from the site, merge with existing Index.csv,
-    keep rows from `since` onward (default: keep everything the site has).
+    Daily run: fetch only the newest rows (back to the last date already in
+    Index.csv, which is re-fetched in case it was revised) and merge them in.
+    With --since, re-fetch from that date onward. If Index.csv doesn't exist
+    yet, fetch just the single latest day.
     """
-    fresh = scrape_index()
     existing = load_existing_index()
 
     if since is not None:
-        since_ts = pd.Timestamp(since)
-        fresh = fresh[fresh["Date"] >= since_ts]
-        existing = existing[existing["Date"] < since_ts]
+        min_date, latest_only = pd.Timestamp(since), False
+    elif len(existing):
+        min_date, latest_only = existing["Date"].max(), False
+    else:
+        min_date, latest_only = None, True
 
+    fresh = scrape_index(
+        min_date=min_date,
+        latest_only=latest_only,
+        page_size=INDEX_PAGE_SIZE if since is not None else None,
+    )
+
+    if min_date is not None:
+        fresh = fresh[fresh["Date"] >= min_date]
+        if since is not None:
+            existing = existing[existing["Date"] < min_date]
+
+    parts = [df for df in (existing, fresh) if len(df)]
+    combined = pd.concat(parts, ignore_index=True) if parts else fresh
+    combined["Date"] = pd.to_datetime(combined["Date"], errors="coerce")
     combined = (
-        pd.concat([existing, fresh], ignore_index=True)
+        combined.dropna(subset=["Date"])
         .drop_duplicates(subset=["Date"], keep="last")
         .sort_values("Date")
         .reset_index(drop=True)
