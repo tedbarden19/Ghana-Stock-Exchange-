@@ -1137,3 +1137,24 @@
 2026-10-03 21:40:41,373 - INFO - ── CLEAN: 40 rows cleaned
 2026-10-03 21:40:41,791 - INFO - ── APPEND: 568 new rows for 14 day(s): 2026-09-14, 2026-09-15, 2026-09-16, 2026-09-17, 2026-09-18, 2026-09-22, 2026-09-23, 2026-09-24, 2026-09-25, 2026-09-28, 2026-09-29, 2026-09-30, 2026-10-01, 2026-10-02
 2026-10-03 21:40:41,792 - INFO - ✓ Finished
+2026-10-06 02:22:52,153 - INFO - ══════════════════════════════════════
+2026-10-06 02:22:52,153 - INFO - GSE Scraper started at 2026-10-06 02:22:52.153787+00:00
+2026-10-06 02:22:52,153 - INFO - ══════════════════════════════════════
+2026-10-06 02:22:52,458 - INFO - ── LOAD: 63822 existing rows, last date 2026-10-02
+2026-10-06 02:22:52,458 - INFO - ── SCRAPE: Starting browser for 2 trading day(s)...
+2026-10-06 02:23:05,853 - INFO - ── SCRAPE: Fetching 05/10/2026
+2026-10-06 02:23:30,137 - INFO - ── SCRAPE: Selected 'All' entries per page
+2026-10-06 02:23:30,189 - INFO - ── SCRAPE: Download initiated...
+2026-10-06 02:23:32,190 - INFO - ── SCRAPE: Download confirmed (4310 bytes)
+2026-10-06 02:23:32,190 - INFO - ── SCRAPE: Fetching 06/10/2026
+2026-10-06 02:23:53,684 - INFO - ── SCRAPE: Selected 'All' entries per page
+2026-10-06 02:23:53,728 - INFO - ── SCRAPE: Download initiated...
+2026-10-06 02:23:55,728 - INFO - ── SCRAPE: Download confirmed (315 bytes)
+2026-10-06 02:23:55,839 - INFO - ── SCRAPE: Browser closed
+2026-10-06 02:23:55,839 - INFO - ── CLEAN: Cleaning downloaded file...
+2026-10-06 02:23:55,847 - INFO - ── CLEAN: 40 rows cleaned
+2026-10-06 02:23:55,848 - INFO - ── CLEAN: Cleaning downloaded file...
+2026-10-06 02:23:55,849 - INFO - ── CLEAN: Downloaded file has no rows.
+2026-10-06 02:23:55,849 - INFO - ── 2026-10-06: no data published (holiday, or not uploaded yet).
+2026-10-06 02:23:56,119 - INFO - ── APPEND: 40 new rows for 1 day(s): 2026-10-05
+2026-10-06 02:23:56,121 - INFO - ✓ Finished
