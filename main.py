@@ -513,25 +513,40 @@ def export_xlsx():
     Write GSE_Data.xlsx with two sheets matching the target workbook:
       - "Data"      : shares (from Data.csv)
       - "Gse index" : market summary (from Index.csv)
-    Dates are stored as real Excel dates; numbers stay numeric.
+    Date columns are pure Excel *dates* (no time component).
     """
+    from openpyxl.styles import numbers
+
     shares = load_existing_shares()
     index = load_existing_index()
 
     shares_out = shares.copy()
-    # ensure proper dtypes for Excel
     if len(shares_out):
-        shares_out[DATE_COL] = pd.to_datetime(shares_out[DATE_COL], errors="coerce")
+        # Convert to Python date objects so Excel stores date-only cells
+        shares_out[DATE_COL] = (
+            pd.to_datetime(shares_out[DATE_COL], errors="coerce").dt.date
+        )
 
     index_out = index.copy()
     if len(index_out):
-        index_out["Date"] = pd.to_datetime(index_out["Date"], errors="coerce")
+        index_out["Date"] = (
+            pd.to_datetime(index_out["Date"], errors="coerce").dt.date
+        )
         index_out["Volume"] = pd.to_numeric(index_out["Volume"], errors="coerce")
 
     tmp = XLSX_FILE + ".tmp.xlsx"
-    with pd.ExcelWriter(tmp, engine="openpyxl", datetime_format="YYYY-MM-DD") as writer:
+    with pd.ExcelWriter(tmp, engine="openpyxl") as writer:
         shares_out.to_excel(writer, sheet_name="Data", index=False)
         index_out.to_excel(writer, sheet_name="Gse index", index=False)
+
+        # Explicit date format on the date columns (column A on both sheets)
+        for sheet_name in ("Data", "Gse index"):
+            ws = writer.sheets[sheet_name]
+            for cell in ws["A"]:
+                if cell.row == 1:
+                    continue  # header
+                cell.number_format = "YYYY-MM-DD"
+
     os.replace(tmp, XLSX_FILE)
     log(
         f"── XLSX: wrote {XLSX_FILE} "
