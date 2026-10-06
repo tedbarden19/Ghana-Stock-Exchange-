@@ -38,7 +38,7 @@ jobs:
         run: pip install selenium pandas requests beautifulsoup4 openpyxl
 
       # Starts from the day after the last date in Data.csv, weekdays only.
-      # Also refreshes Index.csv (GSE-CI / GSE-FSI / volume / market cap) via AJAX
+      # Also adds only the newest rows to Index.csv (GSE-CI / GSE-FSI / volume / market cap) via AJAX
       # and rebuilds GSE_Data.xlsx (sheets: "Data" + "Gse index").
       - name: Run GSE Scraper
         env:
@@ -65,7 +65,10 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add Data.csv Index.csv GSE_Data.xlsx scraper.log
+          # Only add files that exist: one missing file used to abort the whole step
+          for f in Data.csv Index.csv GSE_Data.xlsx scraper.log; do
+            if [ -f "$f" ]; then git add "$f"; fi
+          done
           git diff --quiet --cached || git commit -m "Update GSE data $(date -u +'%Y-%m-%d %H:%M UTC')"
           git pull --rebase --autostash
           git push
