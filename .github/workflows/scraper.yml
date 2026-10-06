@@ -21,7 +21,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        timeout-minutes: 5   # normally takes seconds; fail fast if the runner stalls
+        timeout-minutes: 5
         uses: actions/checkout@v4
         with:
           fetch-depth: 1
@@ -35,12 +35,14 @@ jobs:
       # matching chromedriver. Installing google-chrome-stable on top is what
       # caused the "chromedriver might not be compatible" warnings in the log.
       - name: Install Python dependencies
-        run: pip install selenium pandas
+        run: pip install selenium pandas requests beautifulsoup4 openpyxl
 
       # Starts from the day after the last date in Data.csv, weekdays only.
+      # Also refreshes Index.csv (GSE-CI / GSE-FSI / volume / market cap) via AJAX
+      # and rebuilds GSE_Data.xlsx (sheets: "Data" + "Gse index").
       - name: Run GSE Scraper
         env:
-          PYTHONUNBUFFERED: "1"   # show progress live in the Actions log
+          PYTHONUNBUFFERED: "1"
         run: python main.py
 
       - name: Upload debug artifacts
@@ -52,16 +54,18 @@ jobs:
             error_screenshot.png
             scraper.log
             Data.csv
+            Index.csv
+            GSE_Data.xlsx
             downloads/
           if-no-files-found: ignore
 
       # always(): keep the days that were saved even if a later day failed
-      - name: Commit updated Data.csv
+      - name: Commit updated data files
         if: always()
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add Data.csv scraper.log
+          git add Data.csv Index.csv GSE_Data.xlsx scraper.log
           git diff --quiet --cached || git commit -m "Update GSE data $(date -u +'%Y-%m-%d %H:%M UTC')"
           git pull --rebase --autostash
           git push
