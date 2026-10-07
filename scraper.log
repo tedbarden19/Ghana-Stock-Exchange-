@@ -1178,3 +1178,24 @@
 2026-10-06 17:47:13,737 - INFO - ── APPEND: 40 new share rows for 1 day(s): 2026-10-06
 2026-10-06 17:47:26,863 - INFO - ── XLSX: wrote /home/runner/work/Ghana-Stock-Exchange-/Ghana-Stock-Exchange-/GSE_Data.xlsx (Data: 63902 rows, Gse index: 797 rows)
 2026-10-06 17:47:26,864 - INFO - ✓ Finished
+2026-10-07 01:42:10,476 - INFO - ══════════════════════════════════════
+2026-10-07 01:42:10,476 - INFO - GSE Scraper started at 2026-10-07 01:42:10.476670+00:00
+2026-10-07 01:42:10,476 - INFO - ══════════════════════════════════════
+2026-10-07 01:42:10,492 - INFO - ── INDEX: Discovering table …
+2026-10-07 01:42:11,643 - INFO - ── INDEX: table_id=47  columns=['wdt_ID', 'Day', 'Date', 'Volume', 'GSE Composite Index(GSE-CI)', 'Market Capitalization GH¢ million', 'Financial Stock Index']
+2026-10-07 01:42:12,107 - INFO - ── INDEX: fetched 10 / 801
+2026-10-07 01:42:12,112 - INFO - ── INDEX: 10 clean rows (2026-09-23 → 2026-10-06)
+2026-10-07 01:42:12,124 - INFO - ── INDEX: saved 797 rows (2023-07-17 → 2026-10-06)
+2026-10-07 01:42:12,581 - INFO - ── LOAD: 63902 existing share rows, last date 2026-10-06
+2026-10-07 01:42:12,581 - INFO - ── SCRAPE: Starting browser for 1 trading day(s)...
+2026-10-07 01:42:22,620 - INFO - ── SCRAPE: Fetching shares for 07/10/2026
+2026-10-07 01:42:46,542 - INFO - ── SCRAPE: Selected 'All' entries per page
+2026-10-07 01:42:46,602 - INFO - ── SCRAPE: Download initiated...
+2026-10-07 01:42:48,603 - INFO - ── SCRAPE: Download confirmed (315 bytes)
+2026-10-07 01:42:48,686 - INFO - ── SCRAPE: Browser closed
+2026-10-07 01:42:48,687 - INFO - ── CLEAN: Cleaning downloaded file...
+2026-10-07 01:42:48,688 - INFO - ── CLEAN: Downloaded file has no rows.
+2026-10-07 01:42:48,689 - INFO - ── 2026-10-07: no share data published (holiday, or not uploaded yet).
+2026-10-07 01:42:48,690 - INFO - ── No new share data. Will retry on the next run.
+2026-10-07 01:43:02,309 - INFO - ── XLSX: wrote /home/runner/work/Ghana-Stock-Exchange-/Ghana-Stock-Exchange-/GSE_Data.xlsx (Data: 63902 rows, Gse index: 797 rows)
+2026-10-07 01:43:02,310 - INFO - ✓ Finished
