@@ -1,0 +1,65 @@
+name: GSE Market Cap Daily Scrape
+
+on:
+  schedule:
+    # Evening run, Mon-Fri (UTC = Ghana time). Odd minute on purpose: GitHub delays
+    # jobs scheduled on the hour or half hour.
+    - cron: "47 21 * * 1-5"
+    # Next-morning catch-up. Harmless if the evening run worked: rows for the same
+    # trading date are overwritten, never duplicated.
+    - cron: "17 6 * * 2-6"
+  workflow_dispatch:   # manual "Run workflow" button
+
+permissions:
+  contents: write
+
+concurrency:
+  group: gse-market-cap
+  cancel-in-progress: false
+
+jobs:
+  market-cap:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        timeout-minutes: 5
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      # Chrome + chromedriver are already on ubuntu-latest; no install step needed.
+      - name: Install Python dependencies
+        run: pip install selenium pandas openpyxl
+
+      - name: Scrape market cap per company
+        env:
+          PYTHONUNBUFFERED: "1"
+        run: python market_cap.py
+
+      - name: Upload debug artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: market-cap-debug
+          path: |
+            cap_error_screenshot.png
+            market_cap.log
+            index_per_company.xlsx
+          if-no-files-found: ignore
+
+      - name: Commit index_per_company.xlsx
+        if: success()
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add index_per_company.xlsx
+          git diff --quiet --cached || git commit -m "Update market cap per company $(date -u +'%Y-%m-%d %H:%M UTC')"
+          git pull --rebase --autostash
+          git push
