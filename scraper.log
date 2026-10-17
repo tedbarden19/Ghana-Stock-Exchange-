@@ -1402,3 +1402,23 @@
 2026-10-16 00:32:59,173 - INFO - ── APPEND: 40 new share rows for 1 day(s): 2026-10-15
 2026-10-16 00:33:12,293 - INFO - ── XLSX: wrote /home/runner/work/Ghana-Stock-Exchange-/Ghana-Stock-Exchange-/GSE_Data.xlsx (Data: 64182 rows, Gse index: 804 rows)
 2026-10-16 00:33:12,294 - INFO - ✓ Finished
+2026-10-17 00:39:43,531 - INFO - ══════════════════════════════════════
+2026-10-17 00:39:43,531 - INFO - GSE Scraper started at 2026-10-17 00:39:43.531824+00:00
+2026-10-17 00:39:43,531 - INFO - ══════════════════════════════════════
+2026-10-17 00:39:43,569 - INFO - ── INDEX: Discovering table …
+2026-10-17 00:39:44,896 - INFO - ── INDEX: table_id=47  columns=['wdt_ID', 'Day', 'Date', 'Volume', 'GSE Composite Index(GSE-CI)', 'Market Capitalization GH¢ million', 'Financial Stock Index']
+2026-10-17 00:39:45,698 - INFO - ── INDEX: fetched 10 / 809
+2026-10-17 00:39:45,703 - INFO - ── INDEX: 10 clean rows (2026-10-05 → 2026-10-16)
+2026-10-17 00:39:45,716 - INFO - ── INDEX: saved 805 rows (2023-07-17 → 2026-10-16)
+2026-10-17 00:39:46,178 - INFO - ── LOAD: 64182 existing share rows, last date 2026-10-15
+2026-10-17 00:39:46,179 - INFO - ── SCRAPE: Starting browser for 1 trading day(s)...
+2026-10-17 00:39:48,256 - INFO - ── SCRAPE: Fetching shares for 16/10/2026
+2026-10-17 00:40:11,401 - INFO - ── SCRAPE: Selected 'All' entries per page
+2026-10-17 00:40:11,477 - INFO - ── SCRAPE: Download initiated...
+2026-10-17 00:40:13,478 - INFO - ── SCRAPE: Download confirmed (4286 bytes)
+2026-10-17 00:40:13,559 - INFO - ── SCRAPE: Browser closed
+2026-10-17 00:40:13,559 - INFO - ── CLEAN: Cleaning downloaded file...
+2026-10-17 00:40:13,569 - INFO - ── CLEAN: 40 rows cleaned
+2026-10-17 00:40:14,041 - INFO - ── APPEND: 40 new share rows for 1 day(s): 2026-10-16
+2026-10-17 00:40:26,097 - INFO - ── XLSX: wrote /home/runner/work/Ghana-Stock-Exchange-/Ghana-Stock-Exchange-/GSE_Data.xlsx (Data: 64222 rows, Gse index: 805 rows)
+2026-10-17 00:40:26,098 - INFO - ✓ Finished
