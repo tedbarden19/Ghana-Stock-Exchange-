@@ -1806,3 +1806,30 @@
 2026-11-07 02:08:45,507 - INFO - ── APPEND: 40 new share rows for 1 day(s): 2026-11-06
 2026-11-07 02:08:58,306 - INFO - ── XLSX: wrote /home/runner/work/Ghana-Stock-Exchange-/Ghana-Stock-Exchange-/GSE_Data.xlsx (Data: 64822 rows, Gse index: 820 rows)
 2026-11-07 02:08:58,307 - INFO - ✓ Finished
+2026-11-10 04:14:22,270 - INFO - ══════════════════════════════════════
+2026-11-10 04:14:22,270 - INFO - GSE Scraper started at 2026-11-10 04:14:22.270415+00:00
+2026-11-10 04:14:22,270 - INFO - ══════════════════════════════════════
+2026-11-10 04:14:22,291 - INFO - ── INDEX: Discovering table …
+2026-11-10 04:14:23,846 - INFO - ── INDEX: table_id=47  columns=['wdt_ID', 'Day', 'Date', 'Volume', 'GSE Composite Index(GSE-CI)', 'Market Capitalization GH¢ million', 'Financial Stock Index']
+2026-11-10 04:14:24,345 - INFO - ── INDEX: fetched 10 / 825
+2026-11-10 04:14:24,349 - INFO - ── INDEX: 10 clean rows (2026-10-27 → 2026-11-09)
+2026-11-10 04:14:24,358 - INFO - ── INDEX: saved 821 rows (2023-07-17 → 2026-11-09)
+2026-11-10 04:14:24,745 - INFO - ── LOAD: 64822 existing share rows, last date 2026-11-06
+2026-11-10 04:14:24,745 - INFO - ── SCRAPE: Starting browser for 2 trading day(s)...
+2026-11-10 04:14:31,048 - INFO - ── SCRAPE: Fetching shares for 09/11/2026
+2026-11-10 04:14:53,982 - INFO - ── SCRAPE: Selected 'All' entries per page
+2026-11-10 04:14:54,052 - INFO - ── SCRAPE: Download initiated...
+2026-11-10 04:14:56,052 - INFO - ── SCRAPE: Download confirmed (4301 bytes)
+2026-11-10 04:14:56,052 - INFO - ── SCRAPE: Fetching shares for 10/11/2026
+2026-11-10 04:15:17,670 - INFO - ── SCRAPE: Selected 'All' entries per page
+2026-11-10 04:15:17,726 - INFO - ── SCRAPE: Download initiated...
+2026-11-10 04:15:19,726 - INFO - ── SCRAPE: Download confirmed (315 bytes)
+2026-11-10 04:15:19,800 - INFO - ── SCRAPE: Browser closed
+2026-11-10 04:15:19,801 - INFO - ── CLEAN: Cleaning downloaded file...
+2026-11-10 04:15:19,810 - INFO - ── CLEAN: 40 rows cleaned
+2026-11-10 04:15:19,810 - INFO - ── CLEAN: Cleaning downloaded file...
+2026-11-10 04:15:19,812 - INFO - ── CLEAN: Downloaded file has no rows.
+2026-11-10 04:15:19,812 - INFO - ── 2026-11-10: no share data published (holiday, or not uploaded yet).
+2026-11-10 04:15:20,223 - INFO - ── APPEND: 40 new share rows for 1 day(s): 2026-11-09
+2026-11-10 04:15:31,742 - INFO - ── XLSX: wrote /home/runner/work/Ghana-Stock-Exchange-/Ghana-Stock-Exchange-/GSE_Data.xlsx (Data: 64862 rows, Gse index: 821 rows)
+2026-11-10 04:15:31,743 - INFO - ✓ Finished
