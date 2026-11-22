@@ -11,7 +11,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: gse-scrape
+  group: gse-data   # shared with market-cap.yml: both write GSE_Data.xlsx, so never run at once
   cancel-in-progress: false
 
 jobs:
@@ -39,7 +39,8 @@ jobs:
 
       # Starts from the day after the last date in Data.csv, weekdays only.
       # Also adds only the newest rows to Index.csv (GSE-CI / GSE-FSI / volume / market cap) via AJAX
-      # and rebuilds GSE_Data.xlsx (sheets: "Data" + "Gse index").
+      # and rebuilds GSE_Data.xlsx (sheets: "Data" + "Gse index" + "Index per company",
+      # the last one comes from IndexPerCompany.csv, which market_cap.py fills).
       - name: Run GSE Scraper
         env:
           PYTHONUNBUFFERED: "1"
@@ -55,6 +56,7 @@ jobs:
             scraper.log
             Data.csv
             Index.csv
+            IndexPerCompany.csv
             GSE_Data.xlsx
             downloads/
           if-no-files-found: ignore
@@ -66,7 +68,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           # Only add files that exist: one missing file used to abort the whole step
-          for f in Data.csv Index.csv GSE_Data.xlsx scraper.log; do
+          for f in Data.csv Index.csv IndexPerCompany.csv GSE_Data.xlsx scraper.log; do
             if [ -f "$f" ]; then git add "$f"; fi
           done
           git diff --quiet --cached || git commit -m "Update GSE data $(date -u +'%Y-%m-%d %H:%M UTC')"
