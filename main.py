@@ -17,6 +17,7 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DOWNLOAD_DIR = os.path.join(BASE_DIR, "downloads")
 MAIN_DATA_FILE = os.path.join(BASE_DIR, "Data.csv")
 INDEX_FILE = os.path.join(BASE_DIR, "Index.csv")
+PER_COMPANY_FILE = os.path.join(BASE_DIR, "IndexPerCompany.csv")  # written by market_cap.py
 XLSX_FILE = os.path.join(BASE_DIR, "GSE_Data.xlsx")
 LOG_FILE = os.path.join(BASE_DIR, "scraper.log")
 TZ = ZoneInfo("Africa/Accra")
@@ -40,6 +41,10 @@ FILL_ZERO_COLS = [
 
 # ── Index table ───────────────────────────────────────────────────────────────
 INDEX_COLS = ["Date", "Volume", "GSE-CI", "Market Cap (GH¢ m)", "GSE-FSI"]
+# ── Index per company table (filled by market_cap.py) ─────────────────────────
+PER_COMPANY_SHEET = "Index per company"
+PER_COMPANY_COLS = ["Date", "Share Code", "Market Cap (GH¢ m)"]
+
 INDEX_PAGE_URL = "https://gse.com.gh/trading-and-data/"
 INDEX_AJAX_URL = "https://gse.com.gh/wp-admin/admin-ajax.php"
 INDEX_HEADER_MARKER = "Financial Stock Index"
@@ -549,11 +554,23 @@ def update_index(since=None):
     return combined
 
 
+def load_per_company():
+    """IndexPerCompany.csv -> DataFrame (empty with headers if the file is missing)."""
+    if not os.path.exists(PER_COMPANY_FILE):
+        return pd.DataFrame(columns=PER_COMPANY_COLS)
+    df = pd.read_csv(PER_COMPANY_FILE, encoding="utf-8")
+    df = df[[c for c in PER_COMPANY_COLS if c in df.columns]]
+    df["Date"] = pd.to_datetime(df["Date"], errors="coerce")
+    df["Market Cap (GH¢ m)"] = pd.to_numeric(df["Market Cap (GH¢ m)"], errors="coerce")
+    return df.dropna(subset=["Date"]).sort_values(["Date", "Share Code"], kind="mergesort")
+
+
 def export_xlsx():
     """
-    Write GSE_Data.xlsx with two sheets matching the target workbook:
-      - "Data"      : shares (from Data.csv)
-      - "Gse index" : market summary (from Index.csv)
+    Write GSE_Data.xlsx with three sheets matching the target workbook:
+      - "Data"              : shares (from Data.csv)
+      - "Gse index"         : market summary (from Index.csv)
+      - "Index per company" : market cap per company (from IndexPerCompany.csv)
     Date columns are pure Excel *dates* (no time component).
     """
     from openpyxl.styles import numbers
@@ -575,13 +592,18 @@ def export_xlsx():
         )
         index_out["Volume"] = pd.to_numeric(index_out["Volume"], errors="coerce")
 
+    per_company_out = load_per_company()
+    if len(per_company_out):
+        per_company_out["Date"] = per_company_out["Date"].dt.date
+
     tmp = XLSX_FILE + ".tmp.xlsx"
     with pd.ExcelWriter(tmp, engine="openpyxl") as writer:
         shares_out.to_excel(writer, sheet_name="Data", index=False)
         index_out.to_excel(writer, sheet_name="Gse index", index=False)
+        per_company_out.to_excel(writer, sheet_name=PER_COMPANY_SHEET, index=False)
 
-        # Explicit date format on the date columns (column A on both sheets)
-        for sheet_name in ("Data", "Gse index"):
+        # Explicit date format on the date columns (column A on every sheet)
+        for sheet_name in ("Data", "Gse index", PER_COMPANY_SHEET):
             ws = writer.sheets[sheet_name]
             for cell in ws["A"]:
                 if cell.row == 1:
@@ -591,7 +613,8 @@ def export_xlsx():
     os.replace(tmp, XLSX_FILE)
     log(
         f"── XLSX: wrote {XLSX_FILE} "
-        f"(Data: {len(shares_out)} rows, Gse index: {len(index_out)} rows)"
+        f"(Data: {len(shares_out)} rows, Gse index: {len(index_out)} rows, "
+        f"{PER_COMPANY_SHEET}: {len(per_company_out)} rows)"
     )
 
 
