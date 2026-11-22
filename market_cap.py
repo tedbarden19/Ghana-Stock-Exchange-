@@ -1,8 +1,10 @@
 """Standalone daily scraper: per-company market cap from the 'Market Capitalisation'
 bar chart on https://gse.com.gh/trading-and-data/
 
-Writes / appends  index_per_company.xlsx  (sheet "Index per company"):
-    Date | Share Code | Market Cap (GH¢ m)
+Writes / appends, with columns  Date | Share Code | Market Cap (GH¢ m):
+    IndexPerCompany.csv   the source of truth (main.py rebuilds the workbook from it)
+    GSE_Data.xlsx         sheet "Index per company" is refreshed from the CSV
+                          (the "Data" and "Gse index" sheets are left untouched)
 
 How it works
 ------------
@@ -16,7 +18,7 @@ How it works
 
 Usage
 -----
-    python market_cap.py             # scrape and update index_per_company.xlsx
+    python market_cap.py             # scrape and update the CSV + workbook sheet
     python market_cap.py --dry-run   # scrape and print only, write nothing
 """
 import argparse
@@ -29,7 +31,8 @@ from zoneinfo import ZoneInfo
 import pandas as pd
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-OUT_FILE = os.path.join(BASE_DIR, "index_per_company.xlsx")
+CSV_FILE = os.path.join(BASE_DIR, "IndexPerCompany.csv")
+XLSX_FILE = os.path.join(BASE_DIR, "GSE_Data.xlsx")
 LOG_FILE = os.path.join(BASE_DIR, "market_cap.log")
 SHEET = "Index per company"
 URL = "https://gse.com.gh/trading-and-data/"
@@ -183,12 +186,12 @@ def fetch_company_caps(wait_seconds=45):
         driver.quit()
 
 
-# ───────────────────────── storage (xlsx) ───────────────────────────────────
+# ───────────────────────── storage (csv + workbook sheet) ───────────────────
 def load_existing(path=None):
-    path = path or OUT_FILE
+    path = path or CSV_FILE
     if not os.path.exists(path):
         return pd.DataFrame(columns=COLS)
-    df = pd.read_excel(path, sheet_name=SHEET)
+    df = pd.read_csv(path, encoding="utf-8")
     df = df[[c for c in COLS if c in df.columns]]
     df[DATE_COL] = pd.to_datetime(df[DATE_COL], errors="coerce")
     df[CAP_COL] = pd.to_numeric(df[CAP_COL], errors="coerce")
@@ -206,20 +209,40 @@ def merge(existing, fresh, as_of):
                            kind="mergesort").reset_index(drop=True)
 
 
-def save(df, path=None):
-    path = path or OUT_FILE
+def save_csv(df, path=None):
+    path = path or CSV_FILE
     out = df.copy()
-    out[DATE_COL] = pd.to_datetime(out[DATE_COL]).dt.date  # date-only Excel cells
-    tmp = path + ".tmp.xlsx"
-    with pd.ExcelWriter(tmp, engine="openpyxl") as writer:
-        out.to_excel(writer, sheet_name=SHEET, index=False)
-        ws = writer.sheets[SHEET]
-        for cell in ws["A"][1:]:
-            cell.number_format = "YYYY-MM-DD"
-        ws.column_dimensions["A"].width = 12
-        ws.column_dimensions["B"].width = 13
-        ws.column_dimensions["C"].width = 20
+    out[DATE_COL] = pd.to_datetime(out[DATE_COL]).dt.strftime("%Y-%m-%d")
+    tmp = path + ".tmp"
+    out.to_csv(tmp, index=False, encoding="utf-8")
     os.replace(tmp, path)
+
+
+def update_workbook(df, path=None):
+    """Replace ONLY the 'Index per company' sheet in GSE_Data.xlsx (created if missing)."""
+    from openpyxl import load_workbook
+
+    path = path or XLSX_FILE
+    if not os.path.exists(path):
+        log(f"── CAP: {os.path.basename(path)} not found; CSV saved, the sheet will be "
+            "added the next time main.py builds the workbook", "warning")
+        return False
+
+    wb = load_workbook(path)
+    pos = wb.sheetnames.index(SHEET) if SHEET in wb.sheetnames else len(wb.sheetnames)
+    if SHEET in wb.sheetnames:
+        del wb[SHEET]
+    ws = wb.create_sheet(SHEET, pos)
+    ws.append(COLS)
+    for d, code, cap in zip(pd.to_datetime(df[DATE_COL]).dt.date, df[CODE_COL], df[CAP_COL]):
+        ws.append([d, code, float(cap)])
+    for cell in ws["A"][1:]:
+        cell.number_format = "YYYY-MM-DD"
+
+    tmp = path + ".tmp.xlsx"
+    wb.save(tmp)
+    os.replace(tmp, path)
+    return True
 
 
 # ───────────────────────── main ─────────────────────────────────────────────
@@ -244,9 +267,11 @@ def run(dry_run=False):
         return
 
     combined = merge(load_existing(), fresh, as_of)
-    save(combined)
-    log(f"── CAP: {os.path.basename(OUT_FILE)} now {len(combined)} rows, "
+    save_csv(combined)
+    log(f"── CAP: {os.path.basename(CSV_FILE)} now {len(combined)} rows, "
         f"{combined[DATE_COL].nunique()} date(s), latest {combined[DATE_COL].max().date()}")
+    if update_workbook(combined):
+        log(f"── CAP: sheet '{SHEET}' updated in {os.path.basename(XLSX_FILE)}")
 
 
 if __name__ == "__main__":
