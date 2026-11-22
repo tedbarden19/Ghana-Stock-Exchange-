@@ -14,7 +14,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: gse-market-cap
+  group: gse-data   # shared with scraper.yml: both write GSE_Data.xlsx, so never run at once
   cancel-in-progress: false
 
 jobs:
@@ -51,15 +51,16 @@ jobs:
           path: |
             cap_error_screenshot.png
             market_cap.log
-            index_per_company.xlsx
+            IndexPerCompany.csv
+            GSE_Data.xlsx
           if-no-files-found: ignore
 
-      - name: Commit index_per_company.xlsx
+      - name: Commit IndexPerCompany.csv and GSE_Data.xlsx
         if: success()
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add index_per_company.xlsx
+          git add IndexPerCompany.csv GSE_Data.xlsx
           git diff --quiet --cached || git commit -m "Update market cap per company $(date -u +'%Y-%m-%d %H:%M UTC')"
           git pull --rebase --autostash
           git push
