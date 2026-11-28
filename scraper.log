@@ -2170,3 +2170,23 @@
 2026-11-27 04:24:37,124 - INFO - ── APPEND: 40 new share rows for 1 day(s): 2026-11-26
 2026-11-27 04:24:49,888 - INFO - ── XLSX: wrote /home/runner/work/Ghana-Stock-Exchange-/Ghana-Stock-Exchange-/GSE_Data.xlsx (Data: 65382 rows, Gse index: 834 rows, Index per company: 156 rows)
 2026-11-27 04:24:49,889 - INFO - ✓ Finished
+2026-11-28 04:03:20,384 - INFO - ══════════════════════════════════════
+2026-11-28 04:03:20,384 - INFO - GSE Scraper started at 2026-11-28 04:03:20.384866+00:00
+2026-11-28 04:03:20,384 - INFO - ══════════════════════════════════════
+2026-11-28 04:03:20,425 - INFO - ── INDEX: Discovering table …
+2026-11-28 04:03:21,693 - INFO - ── INDEX: table_id=47  columns=['wdt_ID', 'Day', 'Date', 'Volume', 'GSE Composite Index(GSE-CI)', 'Market Capitalization GH¢ million', 'Financial Stock Index']
+2026-11-28 04:03:22,287 - INFO - ── INDEX: fetched 10 / 839
+2026-11-28 04:03:22,291 - INFO - ── INDEX: 10 clean rows (2026-11-16 → 2026-11-27)
+2026-11-28 04:03:22,298 - INFO - ── INDEX: saved 835 rows (2023-07-17 → 2026-11-27)
+2026-11-28 04:03:22,589 - INFO - ── LOAD: 65382 existing share rows, last date 2026-11-26
+2026-11-28 04:03:22,589 - INFO - ── SCRAPE: Starting browser for 1 trading day(s)...
+2026-11-28 04:03:30,754 - INFO - ── SCRAPE: Fetching shares for 27/11/2026
+2026-11-28 04:03:53,432 - INFO - ── SCRAPE: Selected 'All' entries per page
+2026-11-28 04:03:53,494 - INFO - ── SCRAPE: Download initiated...
+2026-11-28 04:03:55,494 - INFO - ── SCRAPE: Download confirmed (4313 bytes)
+2026-11-28 04:03:55,555 - INFO - ── SCRAPE: Browser closed
+2026-11-28 04:03:55,555 - INFO - ── CLEAN: Cleaning downloaded file...
+2026-11-28 04:03:55,562 - INFO - ── CLEAN: 40 rows cleaned
+2026-11-28 04:03:55,871 - INFO - ── APPEND: 40 new share rows for 1 day(s): 2026-11-27
+2026-11-28 04:04:04,659 - INFO - ── XLSX: wrote /home/runner/work/Ghana-Stock-Exchange-/Ghana-Stock-Exchange-/GSE_Data.xlsx (Data: 65422 rows, Gse index: 835 rows, Index per company: 195 rows)
+2026-11-28 04:04:04,661 - INFO - ✓ Finished
